@@ -51,6 +51,7 @@
             "group": "Security and compliance",
             "pages": [
               "guides/guardrails",
+              "guides/red-teaming",
               "guides/invariants",
               "guides/compliance",
               "guides/eu-ai-act",
@@ -78,7 +79,7 @@
   },
   "footer": {
     "socials": {
-      "github": "https://github.com/advicebytes",
+      "github": "https://github.com/sector8-ai",
       "linkedin": "https://www.linkedin.com/company/sector8-ai"
     }
   }
