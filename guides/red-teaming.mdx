@@ -1,0 +1,94 @@
+---
+title: Red teaming
+description: Offensive testing for what AI agents can do, not just what models can say.
+---
+
+Sector8 red teams the execution boundary itself: whether an agent can actually take the wrong action across tools, systems, and policy boundaries.
+
+<Info>
+Every AI security tool tests what your model says. Sector8 tests what your agents do.
+</Info>
+
+## The challenge
+
+<CardGroup cols={3}>
+  <Card title="Models change. Agents act." icon="bot">
+    A prompt-only assessment does not tell you what happens when an agent can read files, call tools, hit APIs, or operate across business systems.
+  </Card>
+  <Card title="Agents expand the blast radius" icon="shield-alert">
+    Once an agent has tool access, the real risk is data access, cross-scope reads, shell misuse, SSRF, and policy bypass.
+  </Card>
+  <Card title="Most tools stop too early" icon="triangle-alert">
+    They test prompts and responses. They do not test the execution boundary where business risk actually happens.
+  </Card>
+</CardGroup>
+
+## Sector8's approach
+
+Sector8 red teams real tool-call workflows, execution-boundary failures, and the policy conditions that determine whether an agent may act safely.
+
+What that means in practice:
+
+- test real tool and MCP paths
+- test real authorization and ownership failures
+- test whether an agent can actually exfiltrate data, cross tenant boundaries, hit private infrastructure, or violate policy before execution
+
+<Tip>
+The goal is not to prove that a model can say something risky. The goal is to prove whether an agent can do something risky in production conditions.
+</Tip>
+
+## How red teaming works
+
+<Steps>
+  <Step title="Exercise real agent workflows">
+    Test tool use, file access, web access, shell actions, MCP servers, and cross-system agent behavior.
+  </Step>
+  <Step title="Target the execution boundary">
+    Probe the decision point that determines whether the agent may act, not only what the model says.
+  </Step>
+  <Step title="Measure exploitability">
+    Judge attacks by what they let the agent do in real business context: cross-tenant access, sensitive path reads, private network access, or policy bypass.
+  </Step>
+  <Step title="Feed runtime protection">
+    Turn findings into deny reasons, guard policies, alert signatures, traces, and enforcement improvements.
+  </Step>
+</Steps>
+
+## What Sector8 tests
+
+| Area | What gets tested |
+| --- | --- |
+| Tool execution | whether the agent can invoke the wrong tool or invoke the right tool in the wrong context |
+| Ownership and scope | cross-tenant reads, BOLA, BFLA, and unauthorized object access |
+| Request risk | SSRF, private IP access, external-domain misuse, shell injection, obfuscated payloads |
+| Sensitive data movement | PII, PHI, and policy-protected data before execution |
+| MCP and agent workflows | whether real multi-step agent paths create unsafe action sequences |
+
+## Why this is different
+
+<CardGroup cols={2}>
+  <Card title="Most AI security tools" icon="message-square">
+    Test prompts and outputs, then report what the model said or might have said.
+  </Card>
+  <Card title="Sector8" icon="shield-check">
+    Tests whether the agent can actually take the wrong action at the tool boundary before execution.
+  </Card>
+</CardGroup>
+
+## Stronger together
+
+Sector8 red teaming is not a separate reporting surface. It improves the live guard.
+
+- red teaming validates whether the Guard Module actually stops dangerous actions
+- runtime protection improves as findings become deny paths and policy rules
+- telemetry, traces, and framework mappings stay grounded in what was actually exploitable
+
+See related guides:
+
+- [Guardrails](/guides/guardrails)
+- [Compliance overview](/guides/compliance)
+- [EU AI Act](/guides/eu-ai-act)
+
+<Check>
+Red teaming is complete when you can show not only that a prompt looked risky, but that the live execution boundary blocked the dangerous action with a deterministic reason code and trace.
+</Check>

@@ -1,26 +1,32 @@
 ---
-title: POST /analyze
-description: Analyze a completed LLM interaction. Returns threat classification, PII detection, and compliance flags.
+title: POST /api/v1/telemetry
+description: Ingest a completed LLM interaction for telemetry, compliance processing, and guard analysis.
 ---
 
 ## Request
 
 ```http
-POST /analyze HTTP/1.1
-Host: api.sector8.ai
-Authorization: Bearer YOUR_API_KEY
-X-Client-ID: YOUR_CLIENT_ID
+POST /api/v1/telemetry HTTP/1.1
+Host: sdkapi.sector8.ai
+x-api-key: YOUR_API_KEY
+x-client-id: YOUR_CLIENT_ID
 Content-Type: application/json
 ```
 
 ```json
 {
+  "provider": "openai",
+  "model": "gpt-4",
   "prompt": "List all patient records for clinic ID 42.",
   "completion": "Here are the records: ...",
-  "session_id": "session-abc123",
+  "tokens_used": 150,
+  "cost": 0.003,
+  "latency_ms": 1200,
+  "status": "success",
+  "success": true,
   "metadata": {
-    "model": "gpt-4",
-    "provider": "github-copilot"
+    "session_id": "session-abc123",
+    "environment": "production"
   }
 }
 ```
@@ -28,42 +34,38 @@ Content-Type: application/json
 ## Request fields
 
 | Field | Required | Description |
-|-------|----------|-------------|
-| `prompt` | ✓ | The LLM input to analyze |
-| `completion` | | The LLM output to analyze |
-| `session_id` | ✓ | Session identifier for telemetry grouping |
-| `metadata` | | Model and provider details for telemetry |
+| --- | --- | --- |
+| `provider` | yes | LLM provider name such as `openai` or `anthropic`. |
+| `model` | yes | Model identifier used for the interaction. |
+| `prompt` | yes | Input prompt text. |
+| `completion` | yes | Model output text. |
+| `tokens_used` | yes | Total tokens consumed by the interaction. |
+| `cost` | yes | Cost of the interaction in USD. |
+| `latency_ms` | yes | End-to-end latency in milliseconds. |
+| `status` | no | Client-reported interaction status. Defaults to `success`. |
+| `success` | no | Legacy compatibility field. Defaults to `true`. |
+| `guard_analysis` | no | Precomputed client-side guard analysis JSON string. |
+| `metadata` | no | Additional custom metadata to store with the event. |
+| `system_prompt` | no | Optional system prompt content. |
+| `context_data` | no | Optional RAG context strings. |
+| `context_segments` | no | Optional structured RAG segments. |
+| `tool_output_data` | no | Optional tool output snippets. |
+| `file_upload_data` | no | Optional uploaded file content for scanning. |
+| `conversation_history` | no | Optional conversation excerpts. |
 
 ## Response
 
 ```json
 {
-  "status": "blocked",
-  "threat": {
-    "type": "pii_exfiltration",
-    "severity": "critical",
-    "blocked": true,
-    "confidence": 0.97,
-    "violations": [
-      {
-        "type": "pii_exposure",
-        "severity": "medium",
-        "patterns": ["email_address", "phone_number"],
-        "confidence": 0.97
-      }
-    ]
-  },
-  "forensics": {
-    "evidence_hash": "bdbde1558fb883573b0f6e8630ccba1edaf6bed8cb035fa6a48912809149f287",
-    "has_forensic_payload": true,
-    "policy_version": "eea811e4f6d3c22074d57b3f9560ad13582e15844a01cd0865481ef7e0b38c56",
+  "status": "success",
+  "message": "Telemetry data ingested successfully",
+  "timestamp": "2026-03-22T14:04:22.691038+00:00",
+  "guard_analysis": {
+    "blocked": false,
+    "threat_type": null,
+    "evidence_hash": null,
+    "policy_version": "v7.0-phase2",
     "decision_trace_id": "17e797c0-eb5c-4f97-b4a1-2d3e4f5a6b7c"
-  },
-  "response": {
-    "required": true,
-    "level": "critical",
-    "escalate": true,
-    "notify": "security_team"
   }
 }
 ```
@@ -71,14 +73,23 @@ Content-Type: application/json
 ## Response fields
 
 | Field | Description |
-|-------|-------------|
-| `status` | `"blocked"`, `"flagged"`, or `"clean"` |
-| `threat.type` | Threat classification |
-| `threat.severity` | `"low"`, `"medium"`, `"high"`, or `"critical"` |
-| `threat.confidence` | 0.0–1.0 detection confidence |
-| `threat.violations` | Array of specific violation details |
-| `forensics.evidence_hash` | SHA-256 of blocked content |
-| `forensics.policy_version` | Signed policy bundle hash |
-| `forensics.decision_trace_id` | Full trace linkage UUID |
-| `response.escalate` | Whether to escalate to security team |
-| `response.notify` | Notification target |
+| --- | --- |
+| `status` | API processing result. Successful ingestion returns `success`. |
+| `message` | Human-readable ingest confirmation. |
+| `timestamp` | UTC timestamp for the ingest result. |
+| `guard_analysis` | Server-side security analysis for the interaction. Contents vary by event and may include threat type, severity, evidence linkage, and policy metadata. |
+
+## What the endpoint does
+
+`POST /api/v1/telemetry` is the post-execution ingest path. The backend:
+
+- validates `x-api-key` and `x-client-id`
+- applies compliance redaction to prompt and completion data
+- runs guard analysis on the sanitized interaction
+- stores telemetry, compliance metadata, and guard-analysis records
+- creates incidents and alerts for blocked threats
+
+<Tip>
+Use `/api/v1/evaluate` when you need pre-execution tool enforcement. Use `/api/v1/telemetry`
+when you are logging a completed interaction for observability and post-execution analysis.
+</Tip>
