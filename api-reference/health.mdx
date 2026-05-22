@@ -1,17 +1,21 @@
 ---
-title: GET /health
-description: Returns current health and capability state of the Guard Module
+title: GET /api/health
+description: Returns the current health and capability state of the Sector8 Guard Module.
 ---
 
 ## Request
 
 ```http
-GET /health HTTP/1.1
-Host: api.sector8.ai
-Authorization: Bearer YOUR_API_KEY
+GET /api/health HTTP/1.1
+Host: sdkapi.sector8.ai
 ```
 
-No request body required.
+No request body or authentication headers are required.
+
+<Info>
+Use `/api/health` for external checks and load balancer probes. The service also exposes
+`/health`, but `/api/health` is the stable public path used in deployment verification.
+</Info>
 
 ## Response
 
@@ -20,20 +24,20 @@ No request body required.
   "status": "healthy",
   "service": "running",
   "database": "healthy",
-  "timestamp": "2026-03-14T11:17:26.896557+00:00",
-  "policy_version_id": "0dbca364d66447469637bafa2282e635124fcb99eecd6383038e3b652577ebc7",
+  "timestamp": "2026-03-22T15:35:30.652651+00:00",
+  "policy_version_id": "v7.0-phase2",
   "invariants_active": 7,
   "phase": "2",
   "capabilities": {
     "admission_controller": true,
-    "multi_turn_analyzer":  true,
-    "semantic_engine":      true,
-    "pre_filter":           true,
-    "output_compliance":    true,
-    "file_scanner":         true,
-    "rag_integrity":        true,
-    "memory_integrity":     true,
-    "guard_mcp_server":     true
+    "multi_turn_analyzer": true,
+    "semantic_engine": true,
+    "pre_filter": true,
+    "output_compliance": true,
+    "file_scanner": true,
+    "rag_integrity": true,
+    "memory_integrity": true,
+    "guard_mcp_server": true
   }
 }
 ```
@@ -41,15 +45,17 @@ No request body required.
 ## Response fields
 
 | Field | Type | Description |
-|-------|------|-------------|
-| `status` | string | `"healthy"` or `"degraded"` |
-| `service` | string | `"running"` or `"starting"` |
-| `database` | string | `"healthy"` or `"unreachable"` |
-| `policy_version_id` | string | HMAC-SHA256 hash of the active signed policy bundle |
-| `invariants_active` | number | Must be `7` on all healthy deployments |
-| `phase` | string | Active feature phase — `"1"` or `"2"` |
-| `capabilities` | object | Boolean flags for each active component |
+| --- | --- | --- |
+| `status` | string | Service health status. Healthy deployments return `"healthy"`. |
+| `service` | string | Runtime state, typically `"running"`. |
+| `database` | string | Database connectivity state, typically `"healthy"` or `"unhealthy"`. |
+| `timestamp` | string | UTC timestamp for the health response. |
+| `policy_version_id` | string | Active policy version identifier currently loaded by the Guard Module. |
+| `invariants_active` | number | Number of active invariants. Healthy production deployments should report `7`. |
+| `phase` | string | Active rollout phase for the service. |
+| `capabilities` | object | Boolean flags for major Guard Module capabilities. |
 
 <Warning>
-If `invariants_active` is less than 7, the deployment is not operating at full security guarantee. Contact support immediately.
+If `invariants_active` is less than `7`, treat the deployment as degraded and investigate before
+promoting traffic.
 </Warning>

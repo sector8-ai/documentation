@@ -1,28 +1,74 @@
 ---
 title: GDPR
-description: How Sector8 enforces GDPR controls at the LLM tool execution boundary
+description: How Sector8 supports GDPR controls with pre-execution tool enforcement and post-execution telemetry redaction.
 ---
 
-<Info>Full GDPR compliance guide coming soon. See the [Compliance Overview](/guides/compliance) for a summary of all framework coverage.</Info>
+Sector8 supports GDPR at two different points in the flow:
 
-## Controls enforced at tool boundary
+- before execution, by blocking risky tool calls at the admission boundary
+- after execution, by redacting sensitive telemetry before it is stored
 
-| GDPR Requirement | How Sector8 enforces it |
-|-----------------|------------------------|
-| Art. 5 — Data minimisation | Blocks bulk export and unnecessary data access before execution |
-| Art. 17 — Right to erasure | Audit trail with tamper-evident evidence hash on all data access attempts |
-| Art. 25 — Privacy by design | Policy enforced pre-execution — data never accessed until policy permits |
-| Art. 32 — Security of processing | HMAC-SHA256 signed policy bundles, immutable audit trail |
-| Art. 33 — Breach notification | `escalate: true` + `notify: "security_team"` on critical violations |
+This matters because GDPR is not only about logging what happened. It is about preventing
+unnecessary processing in the first place.
 
-## PII detection
+## Where GDPR controls apply
 
-Sector8 detects and blocks transmission of:
-- Email addresses
-- Phone numbers
-- Date of birth
-- Names combined with identifiers
-- National ID numbers
-- Financial account numbers
+| Stage | What Sector8 does |
+| --- | --- |
+| Pre-execution | `compliance_gate.py` blocks tool calls that violate data-minimisation policy before the OS executes them. |
+| Post-execution | The telemetry path applies compliance redaction so prompts and completions are sanitized before storage. |
+| Audit trail | Denied requests carry evidence linkage such as `evidence_hash`, `decision_trace_id`, and `policy_version_id`. |
 
-All PII violations produce a `has_forensic_payload: true` record with full evidence linkage.
+## GDPR controls mapped to shipped behavior
+
+| GDPR requirement | How Sector8 supports it |
+| --- | --- |
+| Art. 5 - Data minimisation | Blocks PII-bearing tool calls and unnecessary bulk access before execution with `GDPR_DATA_MINIMISATION_VIOLATION`. |
+| Art. 25 - Privacy by design | Applies policy before the tool runs, so protected data is not accessed first and reviewed later. |
+| Art. 32 - Security of processing | Uses signed policy versions, evidence hashes, and fail-closed denial paths on guard exceptions. |
+| Art. 33 - Breach response readiness | Blocked telemetry can create incidents and alert dispatch events with traceable evidence linkage. |
+
+## What gets detected
+
+The GDPR pack is pattern-based. It is designed to catch common high-risk identifiers in tool
+arguments and telemetry, not to make broad semantic legal judgments.
+
+Examples include:
+
+- email addresses
+- phone numbers
+- dates of birth
+- national identifiers
+- financial account patterns
+
+<Info>
+Sector8's GDPR scoring and enforcement are operational controls, not a certified legal assessment.
+Use them as guardrails inside a broader privacy program.
+</Info>
+
+## What a GDPR denial looks like
+
+When a tool call is denied for data minimisation, the public response shape includes:
+
+```json
+{
+  "decision": "DENY",
+  "reason_code": "GDPR_DATA_MINIMISATION_VIOLATION",
+  "evidence_hash": "bdbde1558fb883573b0f6e8630ccba1edaf6bed8cb035fa6a48912809149f287",
+  "has_forensic_payload": true,
+  "decision_trace_id": "32819155-d21a-49c8-9509-79338d980fa9",
+  "policy_version_id": "v7.0-phase2"
+}
+```
+
+## How to verify GDPR controls
+
+1. Send a known PII-bearing tool call through [`POST /api/v1/evaluate`](/api-reference/evaluate).
+2. Confirm the response returns `DENY` with `GDPR_DATA_MINIMISATION_VIOLATION`.
+3. Send a completed interaction through [`POST /api/v1/telemetry`](/api-reference/analyze).
+4. Confirm the stored telemetry is redacted and the guard analysis is attached.
+
+<Check>
+You are done when a risky tool call is blocked before execution and the corresponding telemetry
+record is stored in redacted form with evidence linkage.
+</Check>
