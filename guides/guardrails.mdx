@@ -42,7 +42,7 @@ If evaluation fails unexpectedly while the action is routed through Sector8, tre
 
 ### INV-1 - Single execution gate
 
-No authorized path from model output to tool execution that skips evaluation. The admission path is the dispatch control point.
+No authorized routed path from model output to tool execution that skips evaluation. The admission path is the dispatch control point.
 
 ### INV-2 - Dual gate requirement
 
@@ -80,7 +80,7 @@ Each tool call passes sequential checks. Failure at any check returns `DENY` imm
 | 3. Object ownership (BOLA) | Caller must own the target object | `BOLA_VIOLATION` |
 | 4. Role authorization (BFLA) | Caller role must satisfy tool `required_role` | `BFLA_VIOLATION` |
 | 5. Semantic and request risk | Semantic threats, shell injection, SSRF, segmented-input safety, obfuscated payloads | `SEMANTIC_THREAT_DETECTED`, `MCP_SHELL_INJECTION_BLOCKED`, `SENSITIVE_PATH_BLOCKED`, `EXTERNAL_DOMAIN_BLOCKED`, `PRIVATE_IP_BLOCKED`, `OBFUSCATED_SHELL_INJECTION`, `PARAM_INJECTION_DETECTED` |
-| 6. Compliance gate (AC-6) | Pre-execution PII/PHI scan — data never moves if a pattern matches | `GDPR_DATA_MINIMISATION_VIOLATION`, `HIPAA_MINIMUM_NECESSARY_VIOLATION` |
+| 6. Compliance gate (AC-6) | Pre-execution PII/PHI scan — block dispatch on the routed path when a pattern matches | `GDPR_DATA_MINIMISATION_VIOLATION`, `HIPAA_MINIMUM_NECESSARY_VIOLATION` |
 
 <Info>
 Check 5 (security threats) runs before check 6 (compliance) so that the reason code identifies the primary threat. A `web_fetch` to a private IP with PII in the body returns `PRIVATE_IP_BLOCKED`, not a compliance code.
@@ -160,10 +160,10 @@ Exact `reason_code` and `policy_version_id` values depend on your active policy 
 
 ## Compliance coverage
 
-Pre-execution compliance is preventive, not detective. Data does not move before a policy
-decision is made.
+Pre-execution compliance is preventive, not detective. On the routed path, policy can block
+risky data movement before local dispatch.
 
-| Framework | Controls enforced at tool boundary |
+| Framework | Controls supported at the tool boundary |
 | --- | --- |
 | GDPR | PII detection, data minimization, Art. 5 and 17 audit trail |
 | HIPAA | PHI patterns, minimum-necessary access, logging controls |
