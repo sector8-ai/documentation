@@ -5,7 +5,10 @@ description: Wire custom or containerized tool runtimes through POST /api/v1/eva
 
 Non-MCP tool callers -- including containerized Codex CLI deployments -- use
 `POST /api/v1/evaluate` as their enforcement gate. Place evaluate before local
-tool dispatch, then honor the returned decision.
+tool dispatch for tools routed through this wrapper or container integration.
+
+Sector8 returns the verdict. Your application owns honoring that decision at
+dispatch time before any side effect starts.
 
 This path uses the same admission and policy contract as the MCP connector. Coverage
 applies only to tool calls your runtime routes through evaluate or the Sector8 adapter.
@@ -14,7 +17,7 @@ applies only to tool calls your runtime routes through evaluate or the Sector8 a
 Unconnected tools, direct OS dispatch, and chat or completion content that never becomes a governed tool call are not automatically covered.
 </Info>
 
-The container pattern can keep the base image unchanged and add Sector8 in your approved image layer. Your runtime still needs an evaluate-before-dispatch hook.
+The container pattern can keep the base image unchanged and add Sector8 in your approved image layer. Your runtime still needs an evaluate-before-dispatch hook that enforces the decision.
 
 ## Prerequisites
 
@@ -60,8 +63,60 @@ Do not bake credentials into the image. Inject them at runtime via the environme
 
 ## Step 3 -- Place evaluate before dispatch
 
-Replace direct tool dispatch with an evaluate-before-dispatch hook. The adapter calls
-`POST /api/v1/evaluate` and must not execute the tool unless the decision is `ALLOW`.
+For tools routed through this integration, replace direct tool dispatch with an
+evaluate-before-dispatch hook. Sector8 decides; your runtime enforces.
+
+Honor the decision exactly like this:
+
+```python
+import os
+import httpx
+
+try:
+    response = httpx.post(
+        f"{os.environ['SECTOR8_API_URL']}/api/v1/evaluate",
+        headers={
+            "x-api-key": os.environ["SECTOR8_API_KEY"],
+            "x-client-id": os.environ["SECTOR8_CLIENT_ID"],
+        },
+        json={
+            "tool_name": "bash",
+            "arguments": {"command": cmd},
+            "caller_id": os.environ["CODEX_USER_ID"],
+            "role": os.environ.get("CODEX_ROLE", "developer"),
+            "session_id": os.environ["CODEX_SESSION_ID"],
+            "operation": "read",
+        },
+        timeout=10,
+    )
+    response.raise_for_status()
+    decision = response.json()
+except Exception as exc:
+    print(f"Gate unavailable or invalid response; failing closed: {exc}")
+    raise SystemExit(1)
+
+decision_value = decision.get("decision")
+
+if decision_value == "ALLOW":
+    # Dispatch the tool call here.
+    pass
+elif decision_value == "DENY":
+    print(f"Blocked before execution: {decision.get('reason_code')}")
+elif decision_value == "REVIEW":
+    print(f"Paused for approval; do not dispatch: {decision}")
+else:
+    print(f"Unknown decision contract; failing closed: {decision}")
+    raise SystemExit(1)
+```
+
+| Result | Runtime must |
+| --- | --- |
+| `ALLOW` | Dispatch only after this branch |
+| `DENY` | Block; do not dispatch |
+| `REVIEW` | Pause / route to approval; do not dispatch |
+| Missing, unknown, or evaluate error | Fail closed; do not dispatch |
+
+Optional adapter helper for the same routed path:
 
 ```python
 from sdk.adapters.openai_tools_adapter import OpenAIToolsAdapter, ToolBlockedError
@@ -75,11 +130,7 @@ adapter = OpenAIToolsAdapter(
     role=os.environ.get("CODEX_ROLE", "developer"),
     session_id=os.environ["CODEX_SESSION_ID"],
 )
-```
 
-Route every governed tool call through `adapter.execute(...)` before local dispatch:
-
-```python
 try:
     result = adapter.execute(tool_name="bash", arguments={"command": cmd})
     # Local dispatch happens only after ALLOW.
@@ -89,25 +140,10 @@ except ToolBlockedError as e:
     print(f"Trace ID: {e.decision_trace_id}")
 ```
 
-If you call REST directly instead of the adapter, honor the decision the same way as the [Quickstart](/guides/quickstart):
-
-```python
-decision_value = decision.get("decision")
-
-if decision_value == "ALLOW":
-    # Dispatch the tool call here.
-    pass
-elif decision_value == "DENY":
-    print(f"Blocked before execution: {decision.get('reason_code')}")
-elif decision_value == "REVIEW":
-    print(f"Paused for approval: {decision}")
-else:
-    print(f"Unknown decision contract; failing closed: {decision}")
-    raise SystemExit(1)
-```
+If you use the adapter, still ensure `REVIEW`, missing, unknown, and evaluate failures do not dispatch. Sector8 returns the verdict; your application owns enforcement at the dispatch boundary.
 
 <Warning>
-Fail closed if evaluate fails, times out, or returns an unknown decision. Do not execute the proposed action by default. Fail-closed applies to the routed evaluate path; it does not stop actions on bypassed or unconfigured tool paths.
+Fail closed if evaluate fails, times out, or returns an unknown decision. Do not execute the proposed action by default. Fail-closed applies to tools routed through this integration; it does not stop actions on bypassed or unconfigured tool paths.
 </Warning>
 
 ## Runtime semantics
@@ -123,7 +159,8 @@ Fail closed if evaluate fails, times out, or returns an unknown decision. Do not
 
 When correctly wired:
 
-- Your runtime calls `/api/v1/evaluate` before local dispatch
+- Your runtime calls `/api/v1/evaluate` before local dispatch for tools routed through this integration
+- Your application honors the decision at the dispatch boundary
 - `ALLOW` actions may execute
 - `DENY` actions are blocked before execution
 - `REVIEW` decisions pause for approval and do not execute
