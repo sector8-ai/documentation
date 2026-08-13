@@ -1,32 +1,33 @@
 ---
 title: GDPR
-description: How Sector8 supports GDPR controls with pre-execution tool enforcement and post-execution telemetry redaction.
+description: How Sector8 supports GDPR-oriented controls with pre-execution evaluation and telemetry redaction evidence.
 ---
 
-Sector8 supports GDPR at two different points in the flow:
+Sector8 can support GDPR workflows at two points in the flow when your runtime routes proposed actions through it:
 
 - before execution, by blocking risky tool calls at the admission boundary
 - after execution, by redacting sensitive telemetry before it is stored
 
-This matters because GDPR is not only about logging what happened. It is about preventing
-unnecessary processing in the first place.
+Sector8 does not make your organization GDPR-compliant by itself. Use these controls as part of a broader privacy program with legal review.
 
 ## Where GDPR controls apply
 
-| Stage | What Sector8 does |
+| Stage | What Sector8 can do |
 | --- | --- |
-| Pre-execution | `compliance_gate.py` blocks tool calls that violate data-minimisation policy before the OS executes them. |
-| Post-execution | The telemetry path applies compliance redaction so prompts and completions are sanitized before storage. |
-| Audit trail | Denied requests carry evidence linkage such as `evidence_hash`, `decision_trace_id`, and `policy_version_id`. |
+| Pre-execution | Block tool calls that violate configured data-minimisation policy before local dispatch |
+| Post-execution | Apply compliance redaction so prompts and completions can be sanitized before storage |
+| Audit trail | Denied requests carry evidence linkage such as `evidence_hash`, `decision_trace_id`, and `policy_version_id` |
+
+Coverage applies to tool calls and telemetry your runtime routes through Sector8. Unconnected paths are not automatically covered.
 
 ## GDPR controls mapped to shipped behavior
 
-| GDPR requirement | How Sector8 supports it |
+| GDPR requirement | How Sector8 can support it |
 | --- | --- |
-| Art. 5 - Data minimisation | Blocks PII-bearing tool calls and unnecessary bulk access before execution with `GDPR_DATA_MINIMISATION_VIOLATION`. |
-| Art. 25 - Privacy by design | Applies policy before the tool runs, so protected data is not accessed first and reviewed later. |
-| Art. 32 - Security of processing | Uses signed policy versions, evidence hashes, and fail-closed denial paths on guard exceptions. |
-| Art. 33 - Breach response readiness | Blocked telemetry can create incidents and alert dispatch events with traceable evidence linkage. |
+| Art. 5 - Data minimisation | Blocks PII-bearing tool calls and unnecessary bulk access before execution with `GDPR_DATA_MINIMISATION_VIOLATION` when that policy is active |
+| Art. 25 - Privacy by design | Applies policy before the tool runs on the routed path, so protected data is not accessed first and reviewed later |
+| Art. 32 - Security of processing | Uses policy version identifiers, evidence hashes, and fail-closed denial guidance on guard exceptions for the routed path |
+| Art. 33 - Breach response readiness | Blocked telemetry can create incidents and alert events with traceable evidence linkage when those integrations are configured |
 
 ## What gets detected
 
@@ -48,7 +49,7 @@ Use them as guardrails inside a broader privacy program.
 
 ## What a GDPR denial looks like
 
-When a tool call is denied for data minimisation, the public response shape includes:
+When a routed tool call is denied for data minimisation, the public response shape includes:
 
 ```json
 {
@@ -57,18 +58,19 @@ When a tool call is denied for data minimisation, the public response shape incl
   "evidence_hash": "bdbde1558fb883573b0f6e8630ccba1edaf6bed8cb035fa6a48912809149f287",
   "has_forensic_payload": true,
   "decision_trace_id": "32819155-d21a-49c8-9509-79338d980fa9",
-  "policy_version_id": "v7.0-phase2"
+  "policy_version_id": "0dbca364d66447469637bafa2282e635124fcb99eecd6383038e3b652577ebc7"
 }
 ```
+
+Your runtime must honor the decision: block on `DENY`, pause on `REVIEW`, and fail closed on missing, unknown, or failed evaluate results.
 
 ## How to verify GDPR controls
 
 1. Send a known PII-bearing tool call through [`POST /api/v1/evaluate`](/api-reference/evaluate).
-2. Confirm the response returns `DENY` with `GDPR_DATA_MINIMISATION_VIOLATION`.
-3. Send a completed interaction through [`POST /api/v1/telemetry`](/api-reference/analyze).
-4. Confirm the stored telemetry is redacted and the guard analysis is attached.
+2. Confirm the response returns `DENY` with `GDPR_DATA_MINIMISATION_VIOLATION` and that your runtime does not dispatch.
+3. Optionally send a completed interaction through [`POST /api/v1/telemetry`](/api-reference/analyze).
+4. Confirm stored telemetry is redacted when that path is enabled and evidence linkage is present.
 
 <Check>
-You are done when a risky tool call is blocked before execution and the corresponding telemetry
-record is stored in redacted form with evidence linkage.
+You are done when a risky routed tool call is blocked before execution, your runtime honors the `DENY`, and corresponding evidence fields are present for audit.
 </Check>
