@@ -68,15 +68,17 @@ You should receive a decision artifact like:
 ```json
 {
   "decision": "DENY",
-  "reason_code": "SENSITIVE_PATH_BLOCKED",
+  "reason_code": "PRE_FILTER_BLOCK",
   "evidence_hash": "bdbde1558fb883573b0f6e8630ccba1edaf6bed8cb035fa6a48912809149f287",
   "has_forensic_payload": true,
   "decision_trace_id": "32819155-d21a-49c8-9509-79338d980fa9",
-  "policy_version_id": "0dbca364d66447469637bafa2282e635124fcb99eecd6383038e3b652577ebc7"
+  "policy_version_id": "v7.0-phase2"
 }
 ```
 
 Your runtime must not dispatch this action.
+
+Branch on `decision`, not on a specific `reason_code`. The same unsafe command may return different reason codes depending on which policy layer blocks it.
 
 ### ALLOW proof
 
@@ -113,7 +115,7 @@ You should receive a decision artifact like:
 Your runtime may dispatch only after this `ALLOW`.
 
 <Note>
-The exact `reason_code` and `policy_version_id` depend on your active policy and environment. REST responses use the field `decision`. Some SDKs expose the same value as `outcome` — check for `ALLOW` the same way either way.
+`reason_code` and `policy_version_id` are opaque support/evidence identifiers. Do not build exhaustive dispatch logic on them. Treat `policy_version_id` as a non-empty policy identifier — it may be a binding hash or a runtime version label depending on the evaluation path. REST responses use the field `decision`. Some SDKs expose the same value as `outcome` — check for `ALLOW` the same way either way.
 </Note>
 
 ---
@@ -141,7 +143,7 @@ try:
             "session_id": "quickstart-session",
             "operation": "read",
         },
-        timeout=10,
+        timeout=10.0,  # recommended default; fail-closed on timeout
     )
     response.raise_for_status()
     decision = response.json()
@@ -168,6 +170,10 @@ else:
 <Warning>
 Fail closed if the evaluate call fails, times out, or returns an unknown decision. Do not execute the proposed action by default.
 </Warning>
+
+<Tip>
+Set an evaluate client timeout of **at least 10 seconds** (10s is a safe default for most apps). Observed evaluate latency is commonly about 1–4 seconds on the public production host, but slower environments and cold paths can take longer. An aggressive 1–2s timeout will fail closed on legitimate `ALLOW` traffic and block your own safe actions.
+</Tip>
 
 <Note>
 REST field: `decision`. SDK field: often `outcome`. Both carry `ALLOW`, `DENY`, or `REVIEW`. Dispatch only on `ALLOW`.

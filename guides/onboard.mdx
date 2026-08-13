@@ -109,6 +109,8 @@ Use `https://sdkapi.sector8.ai` for public production examples. Do not paste rea
 - Skipping a known unsafe or policy-blocked `DENY` proof
 - Logging an LLM event without calling `evaluate` before tool dispatch
 - Treating `REVIEW` as a generic deny instead of an approval pause
+- Setting an evaluate timeout under ~10s (fail-closed then blocks your own safe `ALLOW` traffic)
+- Branching dispatch logic on a specific `reason_code` instead of on `decision`
 - Hardcoding `SECTOR8_API_KEY` or `SECTOR8_CLIENT_ID` in source
 - Forgetting a stable `session_id` on governed tool calls
 - Assuming unconnected tool paths are covered automatically
