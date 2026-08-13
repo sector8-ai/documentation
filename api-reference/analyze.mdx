@@ -3,9 +3,9 @@ title: POST /api/v1/telemetry
 description: Ingest a completed LLM interaction for telemetry, compliance processing, and post-execution analysis.
 ---
 
-`POST /api/v1/telemetry` is the post-execution ingest path. It records what happened after an interaction completes.
+`POST /api/v1/telemetry` is the post-execution ingest path for detective telemetry and analysis. It records what happened after an interaction completes. It does not block tool calls or replace pre-execution control.
 
-Telemetry is not enforcement. Use [`POST /api/v1/evaluate`](/api-reference/evaluate) before dispatch when you need an `ALLOW`, `DENY`, or `REVIEW` decision.
+Use [`POST /api/v1/evaluate`](/api-reference/evaluate) before dispatch when you need an `ALLOW`, `DENY`, or `REVIEW` decision.
 
 ## Request
 
@@ -96,7 +96,7 @@ For authenticated telemetry requests, the backend can:
 - create incidents and alerts for detected threats when those integrations are configured
 
 <Tip>
-Use `/api/v1/evaluate` for pre-execution control. Use `/api/v1/telemetry` to log a completed interaction for observability and post-execution analysis. Logging telemetry alone does not block unsafe tool dispatch.
+`/api/v1/evaluate` is the pre-execution enforcement path. `/api/v1/telemetry` is detective only: observability and post-execution analysis. Telemetry ingest does not block unsafe tool dispatch.
 </Tip>
 
 See [API Overview](/api-reference/overview), [Evaluate](/api-reference/evaluate), and [Onboarding](/guides/onboard).

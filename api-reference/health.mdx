@@ -19,7 +19,7 @@ Use `/api/health` for external checks and load balancer probes. The service also
 `/health`, but `/api/health` is the stable public path used in deployment verification.
 </Info>
 
-Health confirms the gate is reachable. It is not a substitute for evaluate-before-dispatch.
+Health proves the gate endpoint is reachable and configured. It does not prove a customer app is protected. Enforcement is proven only by a routed `evaluate` call that the application honors before dispatch.
 
 ## Response
 
@@ -63,4 +63,4 @@ Health confirms the gate is reachable. It is not a substitute for evaluate-befor
 If health fails, or `invariants_active` is less than `7`, treat the deployment as degraded and do not route live actions until the gate is healthy again.
 </Warning>
 
-See [Evaluate](/api-reference/evaluate) for the enforcement contract and [Quickstart](/guides/quickstart) for the first evaluate-before-dispatch proof.
+See [Evaluate](/api-reference/evaluate) for the enforcement contract and [Quickstart](/guides/quickstart) for the first routed evaluate-before-dispatch proof.
