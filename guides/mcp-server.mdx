@@ -1,16 +1,19 @@
 ---
 title: Guard MCP Server
-description: Govern Claude Code and MCP-compatible agent tool calls with fail-closed enforcement and forensic telemetry.
+description: Govern Claude Code and MCP-connected agent tool calls with evaluate-before-dispatch decisions and fail-closed runtime behavior.
 ---
 
 ## What it does
 
-The Guard MCP Server intercepts Claude Code tool calls before OS execution. It governs
-`bash`, `read_file`, `write_file`, and `web_fetch` by routing each call through the
-Sector8 Admission Controller.
+The Guard MCP Server connects Claude Code (and other MCP-compatible clients) to Sector8 so proposed tool calls are evaluated before they execute.
 
-This is not a separate policy path. The MCP server uses the same guard engine, invariants,
-evidence hashing, and telemetry model as the rest of the Guard Module.
+When a tool call is routed through `sector8-guard`, Sector8 returns `ALLOW`, `DENY`, or `REVIEW` using the same admission and policy path as the REST evaluate API.
+
+<Info>
+Coverage applies to tool calls routed through the connected Sector8 MCP server. Unconnected tools, direct shell access, and other agent paths are not automatically covered.
+</Info>
+
+This is not a separate policy engine. The MCP server uses the same decision contract, reason codes, and evidence fields as the rest of Sector8.
 
 ## Installation
 
@@ -66,12 +69,13 @@ On Windows, replace the args path with the `.cmd` wrapper if present:
 
 ```text
 Claude Code tool call
+(routed through sector8-guard)
         |
         v
 Guard MCP Server
         |
         v
-Admission Controller
+Sector8 evaluate
   |- pre-filter
   |- rate and multi-turn checks
   |- tool registration and capability checks
@@ -79,26 +83,32 @@ Admission Controller
   |- semantic and segmented-input checks
   |- request-risk checks
         |
-   +----+----+
-   |         |
-   v         v
- DENY      ALLOW
-   |         |
-   |         +-- tool executes
-   +-- tool never executes
+   +----+----+----+
+   |         |    |
+   v         v    v
+ DENY     REVIEW  ALLOW
+   |         |      |
+   |         |      +-- tool may execute
+   |         +-- pause for human approval
+   +-- tool does not execute
 ```
 
-The Guard MCP Server uses the same Admission Controller as the REST API. Policy,
-telemetry, and forensic records are unified across both paths.
+Honor the returned decision before any side effect starts. Policy, telemetry, and decision evidence are unified with the REST evaluate path.
 
-## Security guarantees
+## Runtime semantics
 
-### Fail-closed on guard exception
+| `decision` | Runtime behavior |
+| --- | --- |
+| `ALLOW` | The MCP server may execute the proposed tool call |
+| `DENY` | The MCP server must block the proposed tool call |
+| `REVIEW` | Pause for human approval; do not execute yet |
+| Missing / unknown | Fail closed; do not execute |
 
-If any unhandled exception occurs in the evaluation path, the decision is `DENY`. The tool
-does not execute.
+### Fail-closed on evaluation failure
 
-Returned denial:
+If evaluation fails while the tool call is routed through `sector8-guard`, treat the outcome as fail-closed: the tool should not execute.
+
+Returned denial may include:
 
 - `reason_code: GUARD_INTERNAL_ERROR`
 - non-empty `evidence_hash`
@@ -106,11 +116,9 @@ Returned denial:
 - `decision_trace_id`
 - `policy_version_id`
 
-There is no fail-open path.
+### Decision evidence on deny
 
-### Forensic completeness on deny
-
-Every denied MCP response includes:
+Denied MCP responses include the standard decision artifact:
 
 - `decision`
 - `reason_code`
@@ -119,11 +127,11 @@ Every denied MCP response includes:
 - `decision_trace_id`
 - `policy_version_id`
 
-This is enforced by the deny invariant in CI.
+Exact `reason_code` and `policy_version_id` values depend on your active policy and environment.
 
-### Authorization is enforced, not advisory
+### What is enforced on the MCP path
 
-The admission path enforces:
+For tool calls routed through Sector8, admission checks include:
 
 - tool registration
 - capability checks
@@ -143,6 +151,8 @@ The admission path enforces:
 | `write_file` | content safety, authorization, object scoping |
 | `web_fetch` | SSRF, private IP ranges, localhost, DNS resolution to private targets, unsupported schemes, URL credentials, external domain policy |
 
+These tools are governed when the client routes them through `sector8-guard`. Connecting the MCP server does not automatically cover tools the agent can still call outside that path.
+
 ## `web_fetch` protections
 
 `web_fetch` is not guarded by a simple hostname allowlist.
@@ -157,7 +167,7 @@ The current request-risk path blocks:
 - URL credentials
 - non-allowlisted external domains
 
-This is designed to stop common SSRF paths, including cloud metadata access.
+This is designed to stop common SSRF paths, including cloud metadata access, on the governed MCP path.
 
 ## Example - blocked call
 
@@ -173,15 +183,33 @@ This is designed to stop common SSRF paths, including cloud metadata access.
 }
 ```
 
+## Example - review required
+
+```json
+{
+  "decision": "REVIEW",
+  "tool_name": "bash",
+  "reason_code": "HUMAN_APPROVAL_REQUIRED",
+  "evidence_hash": "9f2c1a88e0b14d3a7c6e5f4a2b1c0d9e8f7a6b5c4d3e2f1a0b9c8d7e6f5a4b3",
+  "has_forensic_payload": false,
+  "decision_trace_id": "6a1b2c3d-4e5f-6789-a012-3456789abcde",
+  "policy_version_id": "0dbca364d66447469637bafa2282e635124fcb99eecd6383038e3b652577ebc7"
+}
+```
+
+Do not execute until your approval flow resolves.
+
 ## Example - allowed call
 
 ```json
 {
   "decision": "ALLOW",
   "tool_name": "bash",
+  "reason_code": "ALLOW_PASS",
   "evidence_hash": "4cb7f786d1f3b57e6f98f3e60d2eb6b81c402d6d3efeb6c9551049f7c14df2f0",
   "has_forensic_payload": false,
   "decision_trace_id": "17e797c0-eb5c-4f97-b4a1-2d3e4f5a6b7c",
+  "policy_version_id": "0dbca364d66447469637bafa2282e635124fcb99eecd6383038e3b652577ebc7",
   "result": {
     "stdout": "hello",
     "stderr": "",
@@ -200,28 +228,30 @@ Inside Claude Code:
 
 You should see `sector8-guard` as a connected server.
 
-Then test one allow and one deny:
+Then test one allow and one deny through the Sector8 MCP server:
 
 ```text
 Use the sector8-guard MCP server to run bash: echo hello
 Use the sector8-guard MCP server to run bash: rm -rf /
 ```
 
-Expected:
+Expected when those calls are routed through `sector8-guard`:
 
 - `echo hello` -> `ALLOW`
 - `rm -rf /` -> `DENY`
+- unknown or missing decisions -> fail closed; do not execute
 
 ## Fleet deployment
 
-Distribute `.claude/settings.json` through the repo or developer environment management.
-Each engineer then gets governed tool execution with the same denial schema and forensic
-model.
+Distribute `.claude/settings.json` through the repo or developer environment management so engineers connect `sector8-guard` consistently.
+
+Coverage still depends on the client routing governed tool calls through that MCP server. Connecting the server does not cover unconnected tools or alternate execution paths.
 
 ## Non-MCP agents
 
-MCP-compatible agents are covered natively. Non-MCP tool callers, including containerized
-Codex CLI integrations, use the SDK adapter and `POST /api/v1/evaluate`.
+MCP-compatible clients can use this connector. Non-MCP tool callers, including containerized Codex CLI integrations, should use the SDK adapter and `POST /api/v1/evaluate`.
 
 See the [non-MCP integration guide](/guides/non-mcp-integration) for the container
 pattern, required environment variables, and enforcement examples.
+
+For the shared decision contract, see [Evaluate](/api-reference/evaluate) and [Guardrails](/guides/guardrails).
