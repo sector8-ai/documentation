@@ -1,88 +1,116 @@
 ---
 title: Onboarding
-description: Get a new Sector8 customer from API keys to a verified first event in under 10 minutes.
+description: Get a new Sector8 customer from runtime credentials to a verified evaluate-before-dispatch proof.
 ---
 
-Connect your application to Sector8, send one real event to production, and confirm the integration worked before you write more code.
+Connect your application to Sector8, evaluate one proposed action before dispatch, honor the decision, and confirm the integration worked before you write more code.
+
+Telemetry can follow later. Telemetry alone is not onboarding success.
 
 ## What you need
 
-- A Sector8 API key
+- A Sector8 runtime API key
 - A Sector8 client ID
-- Python 3.10+ or Node.js 18+
-- Access to the application that will send tool calls or telemetry
+- Python 3.10+, Node.js 18+, or a runtime that can call `POST /api/v1/evaluate`
+- Access to the application path where you can block dispatch on non-`ALLOW` decisions
 
 <Info>
-Contact [support@sector8.ai](mailto:support@sector8.ai) or [book a demo](https://sector8.ai/contact) if you still need your API key and client ID.
+Contact [support@sector8.ai](mailto:support@sector8.ai) or [book a demo](https://sector8.ai/contact) if you still need your runtime credentials.
 </Info>
+
+Public docs use the production host `https://sdkapi.sector8.ai`. Use the endpoint and credentials issued for your environment.
 
 ## Choose your path
 
 <CardGroup cols={3}>
   <Card title="Python SDK" icon="python" href="/guides/python-sdk">
-    Best when your app already runs on Python and you want the shortest path to a working integration.
+    Best when your app already runs on Python and you want evaluate-before-dispatch through the SDK.
   </Card>
   <Card title="TypeScript SDK" icon="code" href="/guides/typescript-sdk">
-    Best for Node.js or TypeScript services that need telemetry and security events without changing providers.
+    Best for Node.js or TypeScript services that should evaluate proposed actions before local dispatch.
   </Card>
-  <Card title="REST API" icon="terminal" href="/guides/non-mcp-integration">
-    Best when you want to route tool calls through Sector8 directly with `POST /api/v1/evaluate`.
+  <Card title="REST / custom runtime" icon="terminal" href="/guides/non-mcp-integration">
+    Best when you wire `POST /api/v1/evaluate` directly into a custom or containerized tool caller.
   </Card>
 </CardGroup>
+
+For Claude Code or MCP-connected clients, also see the [Guard MCP Server](/guides/mcp-server).
 
 ## Recommended first run
 
 <Steps>
   <Step title="Set your credentials">
-    Add your credentials to the environment:
+    Inject credentials through the environment. Do not commit runtime keys to source control.
 
     ```bash
-    export SECTOR8_API_KEY=your_api_key
-    export SECTOR8_CLIENT_ID=your_client_id
+    export SECTOR8_BASE_URL="https://sdkapi.sector8.ai"
+    export SECTOR8_API_KEY="YOUR_API_KEY"
+    export SECTOR8_CLIENT_ID="YOUR_CLIENT_ID"
     ```
   </Step>
 
-  <Step title="Pick one verified production path">
-    Use one of these guides:
+  <Step title="Confirm the gate is reachable">
+    ```bash
+    curl -s "$SECTOR8_BASE_URL/api/health"
+    ```
 
+    If health fails, do not route live actions until the endpoint is reachable.
+  </Step>
+
+  <Step title="Pick one evaluate path">
+    Use one of these guides and call `evaluate` before dispatch:
+
+    - [Quickstart](/guides/quickstart)
     - [Python SDK](/guides/python-sdk)
     - [TypeScript SDK](/guides/typescript-sdk)
     - [Non-MCP integration](/guides/non-mcp-integration)
+    - [Guard MCP Server](/guides/mcp-server)
   </Step>
 
-  <Step title="Send one real event">
-    Your first successful run should do one of these:
+  <Step title="Honor the decision">
+    Your first successful run should evaluate a proposed action and then:
 
-    - call `client.log_llm_call(...)` or `client.logLLMCall(...)`
-    - call `POST /api/v1/evaluate`
-    - run one governed MCP tool call
+    | Result | Runtime must |
+    | --- | --- |
+    | `ALLOW` | May dispatch |
+    | `DENY` | Block; do not dispatch |
+    | `REVIEW` | Pause / route to approval; do not dispatch |
+    | Missing, unknown, error, or timeout | Fail closed; do not dispatch |
+
+    Sector8 returns the verdict. Your application owns enforcing it at the dispatch boundary.
   </Step>
 
   <Step title="Verify the result">
     Confirm:
 
-    - the request succeeded
-    - the production health endpoint responds at `https://sdkapi.sector8.ai/api/health`
-    - the event appears in your Sector8 dashboard or telemetry backend
+    - health responds for your environment
+    - one real `evaluate` call returned a decision artifact
+    - your runtime dispatched only on `ALLOW`
+    - `DENY` / `REVIEW` / unknown / error paths did not execute
+    - the decision artifact includes `reason_code`, `decision_trace_id`, `evidence_hash`, and `policy_version_id`
   </Step>
 </Steps>
 
 <Check>
-You are done when one real call succeeds against `https://sdkapi.sector8.ai` and you can trace that call in Sector8 using its returned metadata.
+You are done when one real evaluate-before-dispatch proof succeeds against your issued endpoint, your runtime honors the decision, and you can trace the decision artifact in Sector8.
 </Check>
 
 ## Common mistakes
 
 <Warning>
-Use `https://sdkapi.sector8.ai` for production. Older `api.sector8.ai` references are not the current FastAPI Guard Module.
+Use `https://sdkapi.sector8.ai` for public production examples. Do not paste real runtime keys into docs, tickets, chat, or source control.
 </Warning>
 
-- Set both `SECTOR8_API_KEY` and `SECTOR8_CLIENT_ID`
-- Do not hardcode credentials in source control
-- For governed tool execution, pass a stable `session_id`
+- Treating connection health or telemetry as proof of enforcement
+- Logging an LLM event without calling `evaluate` before tool dispatch
+- Treating `REVIEW` as a generic deny instead of an approval pause
+- Hardcoding `SECTOR8_API_KEY` or `SECTOR8_CLIENT_ID` in source
+- Forgetting a stable `session_id` on governed tool calls
+- Assuming unconnected tool paths are covered automatically
 
 ## Next steps
 
 - [Quickstart](/guides/quickstart)
+- [Evaluate API](/api-reference/evaluate)
+- [Guardrails](/guides/guardrails)
 - [Guard MCP Server](/guides/mcp-server)
-- [API reference](/api-reference/overview)
