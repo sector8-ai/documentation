@@ -105,7 +105,7 @@ Every evaluate path should converge on the same fields:
 | `outcome` | `ALLOW`, `DENY`, or `REVIEW` |
 | `reason_code` | The machine-readable reason for the decision |
 | `decision_trace_id` | Unique audit identifier for the evaluated action |
-| `evidence_hash` | Hash-based fingerprint for the decision evidence |
+| `evidence_hash` | Fingerprint of the decision evidence for correlation and integrity checks |
 | `policy_version_id` | The policy version or runtime policy identifier applied |
 
 These fields are what you show in Decision Feed and Evidence. They are not a model-written explanation.
