@@ -1,18 +1,37 @@
 ---
 title: The Seven Invariants
-description: Non-negotiable system properties enforced by every Sector8 deployment
+description: Foundational contracts for Sector8 evaluate-before-dispatch on routed integrations.
 ---
 
-The seven invariants are the foundational contracts of the Sector8 Guard Module. Every deployment enforces all seven. Violation at runtime is a critical defect.
+The seven invariants are the foundational contracts of the Sector8 gate. When your runtime routes proposed actions through Sector8, these properties define how evaluation and dispatch control should behave.
+
+Violation on a routed path is a critical defect. Coverage still depends on the integration: unconnected tools and bypassed dispatch paths are not automatically covered.
 
 <Info>The full invariants reference with implementation details is covered in the [Guardrails guide](/guides/guardrails#the-seven-invariants).</Info>
 
 | # | Name | Contract |
 |---|------|----------|
-| INV-1 | Single Execution Gate | No direct path from LLM output to tool execution. The AC is the only dispatch path. |
+| INV-1 | Single Execution Gate | No authorized routed path from model output to tool execution that skips evaluation. The admission path is the dispatch control point. |
 | INV-2 | Dual Gate Requirement | Policy decides intent. Authorization decides capability. Execution requires both. |
-| INV-3 | Per-Step Enforcement | The AC runs per tool call, per agent step, after LLM planning, before execution. |
+| INV-3 | Per-Step Enforcement | Evaluation runs per tool call, per agent step, after planning and before execution. |
 | INV-4 | Untrusted Executor | The LLM produces candidates. The control plane decides outcomes. |
 | INV-5 | Spotlighting Before Policy | Content is trust-tagged before evaluation. Untrusted content cannot self-promote. |
-| INV-6 | Boolean AND Condition | `execute = (policy == ALLOW) AND (admission == PASS)`. Partial pass = block. |
+| INV-6 | Explicit Execution Condition | Execute only on an explicit `ALLOW` that your runtime honors. `DENY`, `REVIEW`, missing, or unknown decisions must not execute. |
 | INV-7 | Trust Inversion Forbidden | No component consuming untrusted outputs may be the final authority to permit execution. |
+
+## Runtime semantics
+
+Honor the decision before dispatch on the routed path:
+
+| Result | Runtime behavior |
+| --- | --- |
+| `ALLOW` | May execute the proposed action |
+| `DENY` | Must block the proposed action |
+| `REVIEW` | Must pause for approval; do not execute yet |
+| Missing / unknown / error | Fail closed; do not execute |
+
+Fail-closed applies when the action is routed through Sector8 and evaluation is unavailable or invalid. It does not stop actions on bypassed or unconfigured tool paths.
+
+Sector8 returns the verdict. Your application owns enforcing it at the dispatch boundary.
+
+See [Evaluate](/api-reference/evaluate), [Guardrails](/guides/guardrails), and [API Overview](/api-reference/overview).
