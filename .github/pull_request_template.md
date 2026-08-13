@@ -3,8 +3,10 @@
 
 ## Docs QA checklist
 
-Confirm public pages still match the customer contract:
+Use when changing customer-facing content under `guides/` or `api-reference/`.
+For tiny typo/formatting-only fixes with no claim or contract changes, mark **N/A** and skip the rest.
 
+- [ ] N/A — typo/formatting only; no claim or contract changes
 - [ ] `decision` is `ALLOW | DENY | REVIEW` (do not teach ALLOW/DENY only)
 - [ ] Claims apply to **routed** proposed actions only (no automatic coverage of unconnected paths)
 - [ ] App/runtime must honor the verdict at dispatch
@@ -16,5 +18,5 @@ Confirm public pages still match the customer contract:
 - [ ] Credentials are “issued to your environment”; do not expose real keys or imply unsupported self-serve key generation
 
 ## Test plan
-- [ ] `npx mint validate`
-- [ ] `npx mint broken-links`
+- [ ] `npx mint validate` (or N/A for non-content / typo-only if unchanged)
+- [ ] `npx mint broken-links` (or N/A for non-content / typo-only if unchanged)
