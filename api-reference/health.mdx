@@ -1,6 +1,6 @@
 ---
 title: GET /api/health
-description: Returns the current health and capability state of the Sector8 Guard Module.
+description: Returns the current health and capability state of the Sector8 gate.
 ---
 
 ## Request
@@ -12,10 +12,14 @@ Host: sdkapi.sector8.ai
 
 No request body or authentication headers are required.
 
+Public examples use the production host. Use the endpoint issued to your environment.
+
 <Info>
 Use `/api/health` for external checks and load balancer probes. The service also exposes
 `/health`, but `/api/health` is the stable public path used in deployment verification.
 </Info>
+
+Health proves the gate endpoint is reachable and configured. It does not prove a customer app is protected. Enforcement is proven only by a routed `evaluate` call that the application honors before dispatch.
 
 ## Response
 
@@ -50,12 +54,13 @@ Use `/api/health` for external checks and load balancer probes. The service also
 | `service` | string | Runtime state, typically `"running"`. |
 | `database` | string | Database connectivity state, typically `"healthy"` or `"unhealthy"`. |
 | `timestamp` | string | UTC timestamp for the health response. |
-| `policy_version_id` | string | Active policy version identifier currently loaded by the Guard Module. |
+| `policy_version_id` | string | Active policy version or runtime policy identifier loaded by the gate. |
 | `invariants_active` | number | Number of active invariants. Healthy production deployments should report `7`. |
 | `phase` | string | Active rollout phase for the service. |
-| `capabilities` | object | Boolean flags for major Guard Module capabilities. |
+| `capabilities` | object | Boolean flags for major gate capabilities. |
 
 <Warning>
-If `invariants_active` is less than `7`, treat the deployment as degraded and investigate before
-promoting traffic.
+If health fails, or `invariants_active` is less than `7`, treat the deployment as degraded and do not route live actions until the gate is healthy again.
 </Warning>
+
+See [Evaluate](/api-reference/evaluate) for the enforcement contract and [Quickstart](/guides/quickstart) for the first routed evaluate-before-dispatch proof.
