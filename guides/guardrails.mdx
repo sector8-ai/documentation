@@ -36,7 +36,7 @@ Admission and policy
 Enforcement holds where the runtime routes proposed actions through Sector8 and fails closed on gate unavailability or unknown decisions. See the [Quickstart](/guides/quickstart) and [Evaluate API](/api-reference/evaluate).
 </Info>
 
-If evaluation fails unexpectedly, treat the outcome as fail-closed: do not execute the proposed action. The gate may surface a context-bound `GUARD_INTERNAL_ERROR` deny with a decision artifact.
+If evaluation fails unexpectedly while the action is routed through Sector8, treat the outcome as fail-closed: your runtime should not execute the proposed action. The gate may surface a context-bound `GUARD_INTERNAL_ERROR` deny with a decision artifact.
 
 ## The seven invariants
 
