@@ -109,15 +109,19 @@ except Exception as exc:
     print(f"Gate unavailable or invalid response; failing closed: {exc}")
     raise SystemExit(1)
 
-if decision["decision"] == "ALLOW":
+decision_value = decision.get("decision")
+
+if decision_value == "ALLOW":
     # Dispatch the tool call here.
     pass
-elif decision["decision"] == "DENY":
-    print(f"Blocked before execution: {decision['reason_code']}")
-    print(f"Evidence hash: {decision['evidence_hash']}")
+elif decision_value == "DENY":
+    print(f"Blocked before execution: {decision.get('reason_code')}")
+    print(f"Evidence hash: {decision.get('evidence_hash')}")
+elif decision_value == "REVIEW":
+    print(f"Paused for approval: {decision}")
 else:
-    # REVIEW or any unknown state should pause execution until your approval flow resolves.
-    print(f"Paused for review: {decision}")
+    print(f"Unknown decision contract; failing closed: {decision}")
+    raise SystemExit(1)
 ```
 
 <Warning>
@@ -152,7 +156,8 @@ You are done when:
 - Your runtime calls `/api/v1/evaluate` before dispatching the action
 - `ALLOW` actions may execute
 - `DENY` actions are blocked before execution
-- `REVIEW` or unknown decisions pause execution
+- `REVIEW` decisions pause for approval and do not execute
+- Unknown or missing decisions fail closed and do not execute
 - Decision artifacts include `reason_code`, `decision_trace_id`, `evidence_hash`, and `policy_version_id`
 
 <Check>
