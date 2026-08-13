@@ -1,6 +1,6 @@
 ---
 title: API Overview
-description: REST API for the Sector8 Guard Module
+description: REST API mental model for Sector8 evaluate-before-dispatch decisions and supporting telemetry.
 ---
 
 ## Base URL
@@ -8,6 +8,8 @@ description: REST API for the Sector8 Guard Module
 ```
 https://sdkapi.sector8.ai
 ```
+
+Public examples use the production host. Use the endpoint and credentials issued to your environment.
 
 ## Authentication
 
@@ -18,20 +20,52 @@ x-api-key: YOUR_API_KEY
 x-client-id: YOUR_CLIENT_ID
 ```
 
-Get your API key and client ID from the [Sector8 dashboard](https://app.sector8.ai).
+Use the runtime credentials issued to your environment. Do not commit real keys to source control.
+
+## Decision contract
+
+`POST /api/v1/evaluate` is the primary enforcement API. Call it before your runtime dispatches a proposed tool or agent action, then honor the returned decision.
+
+| `decision` | Runtime behavior |
+|------------|------------------|
+| `ALLOW` | May dispatch the proposed action |
+| `DENY` | Must block the proposed action |
+| `REVIEW` | Pause for human approval; do not dispatch yet |
+| Missing / unknown / error / timeout | Fail closed; do not dispatch |
+
+Sector8 returns the verdict. Your application owns enforcing it at the dispatch boundary for actions routed through evaluate.
+
+Coverage applies to proposed actions your runtime routes through this API. Unconnected tools and bypassed dispatch paths are not automatically covered.
+
+Decision artifacts commonly include:
+
+| Field | Description |
+|-------|-------------|
+| `decision` | `ALLOW`, `DENY`, or `REVIEW` |
+| `reason_code` | Machine-readable reason for the decision |
+| `evidence_hash` | Fingerprint of the decision evidence for correlation and integrity checks |
+| `has_forensic_payload` | Indicates whether additional forensic detail is attached |
+| `decision_trace_id` | Unique audit identifier for this evaluated action |
+| `policy_version_id` | Policy version or runtime policy identifier applied to the decision |
+
+See [Evaluate](/api-reference/evaluate) for request and response examples.
 
 ## Endpoints
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| `GET` | [`/api/health`](/api-reference/health) | Guard Module health and capability state |
-| `POST` | [`/api/v1/evaluate`](/api-reference/evaluate) | Evaluate a tool call against active policy |
+| `GET` | [`/api/health`](/api-reference/health) | Gate health and capability state |
+| `POST` | [`/api/v1/evaluate`](/api-reference/evaluate) | Evaluate a proposed action before dispatch |
 | `POST` | [`/api/v1/telemetry`](/api-reference/analyze) | Ingest a completed LLM interaction for analysis |
+
+Telemetry records what happened. It is not a substitute for evaluate-before-dispatch.
 
 ## Reason codes
 
 | Code | Trigger |
 |------|---------|
+| `ALLOW_PASS` | Proposed action passed policy and admission checks |
+| `HUMAN_APPROVAL_REQUIRED` | Decision requires human approval before dispatch |
 | `MCP_SHELL_INJECTION_BLOCKED` | Shell injection detected in command |
 | `SENSITIVE_PATH_BLOCKED` | Access to a sensitive file path |
 | `MCP_OBFUSCATED_*_BLOCKED` | Obfuscated payload decoded and blocked (e.g. `MCP_OBFUSCATED_SHELL_INJECTION_BLOCKED`) |
@@ -44,10 +78,12 @@ Get your API key and client ID from the [Sector8 dashboard](https://app.sector8.
 | `GDPR_DATA_MINIMISATION_VIOLATION` | PII detected - data minimisation policy |
 | `HIPAA_MINIMUM_NECESSARY_VIOLATION` | PHI detected - minimum necessary standard |
 | `RATE_LIMIT_EXCEEDED` | Call rate exceeded for this session |
-| `TOOL_NOT_REGISTERED` | Tool has not been registered with the Guard Module |
+| `TOOL_NOT_REGISTERED` | Tool has not been registered with the gate |
 | `LOCKDOWN_RESTRICTED` | Tool is disabled by lockdown capability gate |
 | `CAPABILITY_MISSING` | Required capability is not available |
-| `GUARD_INTERNAL_ERROR` | Unhandled exception - fail-closed, tool not executed |
+| `GUARD_INTERNAL_ERROR` | Evaluation failed; treat as fail-closed on the routed path |
+
+Exact `reason_code` values depend on your active policy and environment.
 
 ## Rate limits
 
