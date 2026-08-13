@@ -1,32 +1,55 @@
 ---
 title: Welcome to Sector8
-description: Security & Observability for Enterprise AI
+description: Pre-execution control for AI agents with ALLOW, DENY, or REVIEW decisions before proposed actions execute.
 ---
 
-# Security & Observability for Enterprise AI
+# Pre-execution control for AI agents
 
-Monitor, protect, and govern your AI applications in real-time. Turn AI black boxes into secure, auditable systems.
+AI agents propose actions. Sector8 decides whether those actions can proceed before the proposed action executes.
+
+Sector8 gives your business an independent control point between an agent and a real-world side effect: refund creation, customer data export, shell execution, inventory reorder, deployment, file access, API call, or model handoff.
+
+Every evaluated action returns an `ALLOW`, `DENY`, or `REVIEW` decision with an audit-grade evidence record: `reason_code`, `decision_trace_id`, `evidence_hash`, and `policy_version_id`.
 
 <Info>
-**Sector8 enforces security before execution — not after.** Every LLM tool call passes through a policy gate before the OS acts on it. Data never moves until a decision is made.
+**The agent does not approve itself.** Proposed actions pass through an independent decision gate. Enforcement holds where the runtime routes proposed actions through Sector8 and fails closed on gate unavailability.
 </Info>
+
+---
+
+## What each buyer should understand
+
+<CardGroup cols={2}>
+  <Card title="Security leaders" icon="shield-halved">
+    Sector8 moves control to the execution boundary. You can block prompt injection, unsafe tool use, PII exposure, and policy breaches before the action runs.
+  </Card>
+  <Card title="Engineering teams" icon="code">
+    Sector8 is model-agnostic. Integrate at the tool or action boundary through SDKs, REST evaluate, or MCP-connected runtimes.
+  </Card>
+  <Card title="Operators and compliance teams" icon="file-lines">
+    Each decision creates evidence with a reason code, trace ID, evidence hash, and policy version so reviewers can see what happened and why.
+  </Card>
+  <Card title="Business owners" icon="briefcase">
+    Business policy can control what agents are allowed to do, such as refund limits, inventory reorder limits, customer data export, and human review for high-risk actions.
+  </Card>
+</CardGroup>
 
 ---
 
 ## What you can do with Sector8
 
 <CardGroup cols={2}>
-  <Card title="Block threats in real time" icon="shield-halved">
-    Stop prompt injection, shell injection, PII exfiltration, and data leakage before they execute. Denied calls carry forensic fields for audit and replay.
+  <Card title="Decide before execution" icon="shield">
+    Stop prompt injection, shell abuse, PII exfiltration, and business-policy breaches before the proposed action executes.
   </Card>
-  <Card title="Govern Claude Code" icon="plug">
-    The Guard MCP Server intercepts every Claude Code tool call — bash, file access, web fetch — before OS execution. One config file, zero code changes.
+  <Card title="Govern agent tool calls" icon="plug">
+    Intercept proposed actions from SDKs, REST evaluate, or MCP-connected runtimes, including Claude Code tool calls, before operating systems or business systems act.
   </Card>
-  <Card title="Full audit trail" icon="file-lines">
-    Every blocked call produces a tamper-evident record with an evidence hash, policy version, and decision trace ID. Built for GDPR, HIPAA, and PCI-DSS.
+  <Card title="Prove every decision" icon="file-check">
+    Return an audit-grade decision record with outcome, reason code, evidence hash, policy version, and decision trace ID.
   </Card>
-  <Card title="Drop into existing apps" icon="code">
-    Wire the Guard Module into any LLM application via the Python SDK or REST API. Works with any model, any agent framework.
+  <Card title="Drop into existing apps" icon="git-branch">
+    Keep your model and application architecture. Add Sector8 at the point where the app would otherwise dispatch a tool call, API call, or agent action.
   </Card>
 </CardGroup>
 
@@ -34,75 +57,83 @@ Monitor, protect, and govern your AI applications in real-time. Turn AI black bo
 
 ## How it works
 
-The LLM proposes actions. Sector8 decides whether they run.
+The agent or model proposes an action. Sector8 evaluates the proposed action against baseline safety checks and active policy. Your runtime then honors the returned decision.
 
-```
-LLM Output
-    │
-    ▼
-Spotlighting          ← trust-tags all content by source
-    │
-    ▼
-Pre-Filter            ← low-latency fast path, blocks obvious threats
-    │
-    ▼
-Admission Controller  ← 7-check policy gate, 7 invariants enforced
-    │
-  DENY │ ALLOW
-    │       │
-Blocked  Executes
-+ trace  + telemetry
+```text
+Proposed AI action
+(tool call, API call, model call, or handoff)
+    |
+    v
+Sector8 evaluate
+    |
+    +-- Pre-filter
+    |   Fast path for obvious unsafe patterns
+    |
+    +-- Admission and policy
+        Baseline safety plus tenant and agent policy
+    |
+    +-- ALLOW  -> runtime may execute the action
+    +-- DENY   -> runtime blocks the action
+    +-- REVIEW -> runtime pauses for human approval
 ```
 
-Unlike output filters or SIEM tools — which run after data has already moved — Sector8 enforces policy **before the OS executes the tool call**. There is no path around the gate.
+Unlike output filters, SIEM, or audit logs alone, Sector8 owns the execution decision before the side effect starts. When correctly integrated, there is no authorized path around the gate.
+
+<Note>
+Sector8 does not replace content security, SIEM, DLP, or customer governance. It owns the pre-execution decision for routed actions and emits evidence that downstream systems can use.
+</Note>
+
+---
+
+## Why pre-execution matters
+
+| Enforcement point | Timing | Data / system exposure |
+|-------------------|--------|------------------------|
+| **Sector8 gate** | Before the proposed action executes | None from that action because the side effect has not started |
+| Output filters / model safety | After the model generates content | The model may already have seen sensitive input |
+| SIEM / DLP | After network or tool activity | Data or action may already have moved |
+| Audit logs alone | After execution | Detective only |
+
+---
+
+## Canonical decision artifact
+
+Every evaluate path should converge on the same fields:
+
+| Field | Meaning |
+|-------|---------|
+| `outcome` | `ALLOW`, `DENY`, or `REVIEW` |
+| `reason_code` | The machine-readable reason for the decision |
+| `decision_trace_id` | Unique audit identifier for the evaluated action |
+| `evidence_hash` | Fingerprint of the decision evidence for correlation and integrity checks |
+| `policy_version_id` | The policy version or runtime policy identifier applied |
+
+These fields are what you show in Decision Feed and Evidence. They are not a model-written explanation.
 
 ---
 
 ## Get started
 
 <CardGroup cols={3}>
-  <Card title="Guardrails" icon="shield" href="/guides/guardrails">
-    Understand the Guard Module — invariants, admission checks, spotlighting, and forensic telemetry
+  <Card title="Quickstart" icon="rocket" href="/guides/quickstart">
+    Choose MCP, SDK, or REST and get your first decision.
   </Card>
   <Card title="Python SDK" icon="python" href="/guides/python-sdk">
-    Wire the Guard Module into your application in minutes
+    Call evaluate from your application runtime.
   </Card>
   <Card title="Guard MCP Server" icon="plug" href="/guides/mcp-server">
-    Govern Claude Code tool calls — no code changes required
+    Govern Claude Code tool calls with one config change.
   </Card>
 </CardGroup>
 
 ---
 
-## Why pre-execution matters
+## Check the gate
 
-| Enforcement point | Timing | Data exposure |
-|-------------------|--------|---------------|
-| **Sector8 Guard Module** | Before OS execution | None — data never accessed |
-| Output filters / model safety | After LLM generates response | LLM has already seen data |
-| SIEM / DLP | After network transmission | Data has already moved |
-| Audit logs | After everything | Detective only |
+Use the endpoint issued for your environment.
 
----
-
-## Live system status
-
-```json
-{
-  "status": "healthy",
-  "phase": "2",
-  "invariants_active": 7,
-  "policy_version_id": "0dbca364d664...ebc7",
-  "capabilities": {
-    "admission_controller": true,
-    "semantic_engine":      true,
-    "pre_filter":           true,
-    "multi_turn_analyzer":  true,
-    "output_compliance":    true,
-    "file_scanner":         true,
-    "rag_integrity":        true,
-    "memory_integrity":     true,
-    "guard_mcp_server":     true
-  }
-}
+```bash
+curl -s https://sdkapi.sector8.ai/api/health
 ```
+
+Expect a healthy status with active invariants and gate capabilities before sending routed actions through the gate.
