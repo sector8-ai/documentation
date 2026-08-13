@@ -1,7 +1,13 @@
 ---
 title: POST /api/v1/evaluate
-description: Evaluate a tool call against the active policy. Returns an admission decision with forensic fields.
+description: Evaluate a proposed tool or agent action before dispatch. Returns ALLOW, DENY, or REVIEW with an evidence record.
 ---
+
+Call `/api/v1/evaluate` before your runtime dispatches the proposed action. Honor the returned decision before any side effect starts.
+
+<Info>
+Use the endpoint and credentials issued for your environment. Public examples use the production host.
+</Info>
 
 ## Request
 
@@ -32,28 +38,30 @@ Content-Type: application/json
 
 | Field | Required | Description |
 |-------|----------|-------------|
-| `tool_name` | yes | Tool being called - must match a registered tool name |
+| `tool_name` | yes | Tool or action being proposed |
 | `arguments` | yes | Tool arguments as a JSON object |
-| `caller_id` | no | Engineer or agent identifier - recorded in telemetry |
-| `role` | no | Authorization role - checked against the tool's `required_role` |
-| `session_id` | no | Stable session identifier - required for rate limiting and multi-turn analysis |
-| `owned_objects` | no | List of object IDs the caller owns - used for BOLA checks |
-| `object_id` | no | Target object for this call - checked against `owned_objects` |
-| `operation` | no | Requested operation - used in policy evaluation |
-| `capability` | no | Explicit capability override - defaults to `tool_name` |
+| `caller_id` | no | Engineer or agent identifier recorded with the decision |
+| `role` | no | Authorization role used in policy evaluation |
+| `session_id` | no | Stable session identifier used for correlation and multi-turn analysis |
+| `owned_objects` | no | Object IDs the caller owns, used for ownership checks |
+| `object_id` | no | Target object for this call |
+| `operation` | no | Requested operation used in policy evaluation |
+| `capability` | no | Explicit capability override; defaults to `tool_name` when omitted |
 
 ## Response - ALLOW
 
 ```json
 {
   "decision": "ALLOW",
-  "reason_code": null,
+  "reason_code": "ALLOW_PASS",
   "evidence_hash": "4cb7f786d1f3b57e6f98f3e60d2eb6b81c402d6d3efeb6c9551049f7c14df2f0",
   "has_forensic_payload": false,
   "decision_trace_id": "17e797c0-eb5c-4f97-b4a1-2d3e4f5a6b7c",
   "policy_version_id": "0dbca364d66447469637bafa2282e635124fcb99eecd6383038e3b652577ebc7"
 }
 ```
+
+Your runtime may dispatch the proposed action.
 
 ## Response - DENY
 
@@ -68,23 +76,55 @@ Content-Type: application/json
 }
 ```
 
+Your runtime must not execute the proposed action.
+
+## Response - REVIEW
+
+```json
+{
+  "decision": "REVIEW",
+  "reason_code": "HUMAN_APPROVAL_REQUIRED",
+  "evidence_hash": "9f2c1a88e0b14d3a7c6e5f4a2b1c0d9e8f7a6b5c4d3e2f1a0b9c8d7e6f5a4b3",
+  "has_forensic_payload": false,
+  "decision_trace_id": "6a1b2c3d-4e5f-6789-a012-3456789abcde",
+  "policy_version_id": "0dbca364d66447469637bafa2282e635124fcb99eecd6383038e3b652577ebc7"
+}
+```
+
+Your runtime must pause for human approval. Do not execute until your approval flow resolves.
+
+<Note>
+Exact `reason_code` and `policy_version_id` values depend on your active policy and environment. The contract is that the runtime receives a decision before the proposed action executes.
+</Note>
+
 ## Response fields
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `decision` | string | `"ALLOW"` or `"DENY"` |
-| `reason_code` | string\|null | Machine-readable denial reason. Null on ALLOW. See [reason codes](/api-reference/overview#reason-codes). |
-| `evidence_hash` | string | SHA-256 evidence hash for the decision payload. Always present. Forensically significant on DENY. |
-| `has_forensic_payload` | boolean | `true` on all DENY records, `false` on ALLOW |
-| `decision_trace_id` | string | UUID - links this decision to the full admission trace |
-| `policy_version_id` | string\|null | HMAC-SHA256 signed policy bundle hash - proves which policy version made the decision |
+| `decision` | string | `"ALLOW"`, `"DENY"`, or `"REVIEW"` |
+| `reason_code` | string\|null | Machine-readable reason for the decision. See [reason codes](/api-reference/overview#reason-codes). |
+| `evidence_hash` | string | Fingerprint of the decision evidence for correlation and integrity checks |
+| `has_forensic_payload` | boolean | Indicates whether additional forensic detail is attached to the record |
+| `decision_trace_id` | string | Unique audit identifier for this evaluated action |
+| `policy_version_id` | string\|null | Policy version or runtime policy identifier applied to the decision |
 
-<Note>
-Every DENY carries `evidence_hash` and `has_forensic_payload: true`. This is enforced by CI across the entire deny surface - there is no deny path that omits these fields.
-</Note>
+## Runtime semantics
 
-## Telemetry and alert dispatch
+Honor the decision before dispatch:
 
-Every call through `/api/v1/evaluate` is recorded. DENY decisions trigger the alert dispatcher: a webhook or SNS notification is sent to the configured security endpoint if `SECTOR8_ALERT_WEBHOOK_URL` or `SECTOR8_ALERT_SNS_TOPIC` is set.
+| `decision` | Runtime behavior |
+|------------|------------------|
+| `ALLOW` | May execute the proposed action |
+| `DENY` | Must block the proposed action |
+| `REVIEW` | Must pause for approval; do not execute yet |
+| Missing / unknown | Fail closed; do not execute |
 
-See [Guardrails](/guides/guardrails#forensic-telemetry) for the full telemetry reference.
+<Warning>
+Fail closed if the evaluate call fails, times out, or returns an unknown decision. Do not execute the proposed action by default.
+</Warning>
+
+## Telemetry
+
+Every evaluate call is recorded with the returned decision artifact. Denied actions can feed alert and incident workflows when those integrations are configured for your tenant.
+
+See [Guardrails](/guides/guardrails#forensic-telemetry) for broader telemetry context and the [Quickstart](/guides/quickstart) for the first evaluate-before-dispatch proof.
