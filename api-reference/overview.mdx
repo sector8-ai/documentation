@@ -42,11 +42,11 @@ Decision artifacts commonly include:
 | Field | Description |
 |-------|-------------|
 | `decision` | `ALLOW`, `DENY`, or `REVIEW` |
-| `reason_code` | Machine-readable reason for the decision |
+| `reason_code` | Opaque machine-readable reason for support/display — branch on `decision` |
 | `evidence_hash` | Fingerprint of the decision evidence for correlation and integrity checks |
 | `has_forensic_payload` | Indicates whether additional forensic detail is attached |
 | `decision_trace_id` | Unique audit identifier for this evaluated action |
-| `policy_version_id` | Policy version or runtime policy identifier applied to the decision |
+| `policy_version_id` | Non-empty policy identifier (binding hash or runtime version label) |
 
 See [Evaluate](/api-reference/evaluate) for request and response examples.
 
@@ -62,9 +62,14 @@ Telemetry records what happened. It is not a substitute for evaluate-before-disp
 
 ## Reason codes
 
+`reason_code` is an opaque support/evidence field. **Honor `decision` for dispatch.** Do not write exhaustive `if reason_code == ...` handling — the set is not a closed public enum and the same unsafe action may be blocked by different layers.
+
+Illustrative values you may see:
+
 | Code | Trigger |
 |------|---------|
 | `ALLOW_PASS` | Proposed action passed policy and admission checks |
+| `PRE_FILTER_BLOCK` | Blocked by an early pre-filter (common for known-unsafe shell/path patterns) |
 | `HUMAN_APPROVAL_REQUIRED` | Decision requires human approval before dispatch |
 | `MCP_SHELL_INJECTION_BLOCKED` | Shell injection detected in command |
 | `SENSITIVE_PATH_BLOCKED` | Access to a sensitive file path |
@@ -83,7 +88,11 @@ Telemetry records what happened. It is not a substitute for evaluate-before-disp
 | `CAPABILITY_MISSING` | Required capability is not available |
 | `GUARD_INTERNAL_ERROR` | Evaluation failed; treat as fail-closed on the routed path |
 
-Exact `reason_code` values depend on your active policy and environment.
+Exact `reason_code` and `policy_version_id` values depend on your active policy, environment, and evaluation path.
+
+## Client timeout
+
+For `POST /api/v1/evaluate`, set an HTTP client timeout of **at least 10 seconds** (`10s` recommended default). Fail closed on timeout. Aggressive 1–2s timeouts will block legitimate `ALLOW` traffic.
 
 ## Rate limits
 

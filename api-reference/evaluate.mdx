@@ -68,15 +68,17 @@ Your runtime may dispatch the proposed action.
 ```json
 {
   "decision": "DENY",
-  "reason_code": "SENSITIVE_PATH_BLOCKED",
+  "reason_code": "PRE_FILTER_BLOCK",
   "evidence_hash": "bdbde1558fb883573b0f6e8630ccba1edaf6bed8cb035fa6a48912809149f287",
   "has_forensic_payload": true,
   "decision_trace_id": "32819155-d21a-49c8-9509-79338d980fa9",
-  "policy_version_id": "0dbca364d66447469637bafa2282e635124fcb99eecd6383038e3b652577ebc7"
+  "policy_version_id": "v7.0-phase2"
 }
 ```
 
 Your runtime must not execute the proposed action.
+
+Branch on `decision`. The same proposed action may return different `reason_code` values depending on which policy layer blocks it (for example `PRE_FILTER_BLOCK` vs a more specific path or injection code).
 
 ## Response - REVIEW
 
@@ -94,7 +96,7 @@ Your runtime must not execute the proposed action.
 Your runtime must pause for human approval. Do not execute until your approval flow resolves.
 
 <Note>
-Exact `reason_code` and `policy_version_id` values depend on your active policy and environment. The contract is that the runtime receives a decision before the proposed action executes.
+`reason_code` and `policy_version_id` are opaque support/evidence identifiers. Values depend on your active policy, environment, and evaluation path. Do not build exhaustive dispatch logic on them. The contract is that the runtime receives a `decision` before the proposed action executes.
 </Note>
 
 ## Response fields
@@ -102,11 +104,11 @@ Exact `reason_code` and `policy_version_id` values depend on your active policy 
 | Field | Type | Description |
 |-------|------|-------------|
 | `decision` | string | `"ALLOW"`, `"DENY"`, or `"REVIEW"` |
-| `reason_code` | string\|null | Machine-readable reason for the decision. See [reason codes](/api-reference/overview#reason-codes). |
+| `reason_code` | string\|null | Opaque machine-readable reason for support/display. Illustrative values: [reason codes](/api-reference/overview#reason-codes). Branch on `decision`, not on a specific code. |
 | `evidence_hash` | string | Fingerprint of the decision evidence for correlation and integrity checks |
 | `has_forensic_payload` | boolean | Indicates whether additional forensic detail is attached to the record |
 | `decision_trace_id` | string | Unique audit identifier for this evaluated action |
-| `policy_version_id` | string\|null | Policy version or runtime policy identifier applied to the decision |
+| `policy_version_id` | string\|null | Non-empty policy identifier applied to the decision. May be a binding hash or a runtime version label depending on evaluation path; do not assume one format across all verdicts. |
 
 ## Runtime semantics
 
@@ -122,6 +124,12 @@ Honor the decision before dispatch:
 <Warning>
 Fail closed if the evaluate call fails, times out, or returns an unknown decision. Do not execute the proposed action by default.
 </Warning>
+
+## Client timeout
+
+Set an evaluate HTTP client timeout of **at least 10 seconds**. `10s` is the recommended default.
+
+Observed evaluate latency on the public production host is commonly about 1–4 seconds. Slower environments and cold paths can take longer. If you set a 1–2s timeout, fail-closed will block legitimate `ALLOW` traffic.
 
 ## Telemetry
 
