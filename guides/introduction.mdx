@@ -46,7 +46,7 @@ Every evaluated action returns an `ALLOW`, `DENY`, or `REVIEW` decision with an 
     Intercept proposed actions from SDKs, REST evaluate, or MCP-connected runtimes, including Claude Code tool calls, before operating systems or business systems act.
   </Card>
   <Card title="Prove every decision" icon="file-check">
-    Return an audit-grade decision record with outcome, reason code, evidence hash, policy version, and decision trace ID.
+    Return an audit-grade decision record with decision, reason code, evidence hash, policy version, and decision trace ID.
   </Card>
   <Card title="Drop into existing apps" icon="git-branch">
     Keep your model and application architecture. Add Sector8 at the point where the app would otherwise dispatch a tool call, API call, or agent action.
@@ -102,7 +102,7 @@ Every evaluate path should converge on the same fields:
 
 | Field | Meaning |
 |-------|---------|
-| `outcome` | `ALLOW`, `DENY`, or `REVIEW` |
+| `decision` | `ALLOW`, `DENY`, or `REVIEW` |
 | `reason_code` | The machine-readable reason for the decision |
 | `decision_trace_id` | Unique audit identifier for the evaluated action |
 | `evidence_hash` | Fingerprint of the decision evidence for correlation and integrity checks |
@@ -122,7 +122,7 @@ These fields are what you show in Decision Feed and Evidence. They are not a mod
     Call evaluate from your application runtime.
   </Card>
   <Card title="Guard MCP Server" icon="plug" href="/guides/mcp-server">
-    Govern Claude Code tool calls with one config change.
+    Govern Claude Code tool calls routed through the Sector8 MCP connector.
   </Card>
 </CardGroup>
 
