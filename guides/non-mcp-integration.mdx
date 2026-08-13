@@ -1,18 +1,36 @@
 ---
 title: Non-MCP integration
-description: Add Sector8 enforcement to a containerized Codex CLI or other non-MCP tool caller with one evaluation endpoint.
+description: Wire custom or containerized tool runtimes through POST /api/v1/evaluate and honor ALLOW, DENY, or REVIEW before dispatch.
 ---
 
 Non-MCP tool callers -- including containerized Codex CLI deployments -- use
-`POST /api/v1/evaluate` as their enforcement gate. Every tool call passes through
-the same Admission Controller that governs the MCP Server. The container pattern
-requires no code changes to the base image.
+`POST /api/v1/evaluate` as their enforcement gate. Place evaluate before local
+tool dispatch for tools routed through this wrapper or container integration.
+
+Sector8 returns the verdict. Your application owns honoring that decision at
+dispatch time before any side effect starts.
+
+This path uses the same admission and policy contract as the MCP connector. Coverage
+applies only to tool calls your runtime routes through evaluate or the Sector8 adapter.
+
+<Info>
+Unconnected tools, direct OS dispatch, and chat or completion content that never becomes a governed tool call are not automatically covered.
+</Info>
+
+The container pattern can keep the base image unchanged and add Sector8 in your approved image layer. Your runtime still needs an evaluate-before-dispatch hook that enforces the decision.
 
 ## Prerequisites
 
-- A Sector8 API key and client ID (from the [Sector8 dashboard](https://app.sector8.ai))
-- A container build that you control
-- `pip` available in the container
+- A Sector8 API key and client ID
+- A container build or runtime path that you control
+- A place in the tool caller where you can block dispatch on non-`ALLOW` decisions
+- `pip` available in the container if you use the Python adapter
+
+```bash
+export SECTOR8_API_URL="https://sdkapi.sector8.ai"
+export SECTOR8_API_KEY="YOUR_API_KEY"
+export SECTOR8_CLIENT_ID="YOUR_CLIENT_ID"
+```
 
 ---
 
@@ -39,14 +57,66 @@ Do not bake credentials into the image. Inject them at runtime via the environme
 | `SECTOR8_API_URL` | yes | Sector8 API base URL |
 | `SECTOR8_API_KEY` | yes | tenant API key for `POST /api/v1/evaluate` |
 | `SECTOR8_CLIENT_ID` | yes | tenant or client identifier |
-| `CODEX_USER_ID` | yes | developer identity recorded in telemetry |
+| `CODEX_USER_ID` | yes | developer identity recorded with the decision |
 | `CODEX_ROLE` | yes | authorization role, for example `developer` |
-| `CODEX_SESSION_ID` | yes | per-session trace and rate-limit identity |
+| `CODEX_SESSION_ID` | yes | per-session correlation and rate-limit identity |
 
-## Step 3 -- Route tool calls through the adapter
+## Step 3 -- Place evaluate before dispatch
 
-Replace direct tool dispatch with the Sector8 adapter. The adapter calls
-`POST /api/v1/evaluate` and raises `ToolBlockedError` on `DENY`:
+For tools routed through this integration, replace direct tool dispatch with an
+evaluate-before-dispatch hook. Sector8 decides; your runtime enforces.
+
+Honor the decision exactly like this:
+
+```python
+import os
+import httpx
+
+try:
+    response = httpx.post(
+        f"{os.environ['SECTOR8_API_URL']}/api/v1/evaluate",
+        headers={
+            "x-api-key": os.environ["SECTOR8_API_KEY"],
+            "x-client-id": os.environ["SECTOR8_CLIENT_ID"],
+        },
+        json={
+            "tool_name": "bash",
+            "arguments": {"command": cmd},
+            "caller_id": os.environ["CODEX_USER_ID"],
+            "role": os.environ.get("CODEX_ROLE", "developer"),
+            "session_id": os.environ["CODEX_SESSION_ID"],
+            "operation": "read",
+        },
+        timeout=10,
+    )
+    response.raise_for_status()
+    decision = response.json()
+except Exception as exc:
+    print(f"Gate unavailable or invalid response; failing closed: {exc}")
+    raise SystemExit(1)
+
+decision_value = decision.get("decision")
+
+if decision_value == "ALLOW":
+    # Dispatch the tool call here.
+    pass
+elif decision_value == "DENY":
+    print(f"Blocked before execution: {decision.get('reason_code')}")
+elif decision_value == "REVIEW":
+    print(f"Paused for approval; do not dispatch: {decision}")
+else:
+    print(f"Unknown decision contract; failing closed: {decision}")
+    raise SystemExit(1)
+```
+
+| Result | Runtime must |
+| --- | --- |
+| `ALLOW` | Dispatch only after this branch |
+| `DENY` | Block; do not dispatch |
+| `REVIEW` | Pause / route to approval; do not dispatch |
+| Missing, unknown, or evaluate error | Fail closed; do not dispatch |
+
+Optional adapter helper for the same routed path:
 
 ```python
 from sdk.adapters.openai_tools_adapter import OpenAIToolsAdapter, ToolBlockedError
@@ -60,35 +130,49 @@ adapter = OpenAIToolsAdapter(
     role=os.environ.get("CODEX_ROLE", "developer"),
     session_id=os.environ["CODEX_SESSION_ID"],
 )
-```
 
-Route every tool call through `adapter.execute(...)` before local dispatch:
-
-```python
 try:
     result = adapter.execute(tool_name="bash", arguments={"command": cmd})
-    # dispatch locally
+    # Local dispatch happens only after ALLOW.
 except ToolBlockedError as e:
-    print(f"Blocked: {e.reason_code}")
+    print(f"Blocked before execution: {e.reason_code}")
     print(f"Evidence hash: {e.evidence_hash}")
     print(f"Trace ID: {e.decision_trace_id}")
 ```
+
+If you use the adapter, still ensure `REVIEW`, missing, unknown, and evaluate failures do not dispatch. Sector8 returns the verdict; your application owns enforcement at the dispatch boundary.
+
+<Warning>
+Fail closed if evaluate fails, times out, or returns an unknown decision. Do not execute the proposed action by default. Fail-closed applies to tools routed through this integration; it does not stop actions on bypassed or unconfigured tool paths.
+</Warning>
+
+## Runtime semantics
+
+| `decision` | Runtime behavior |
+| --- | --- |
+| `ALLOW` | Your runtime may dispatch the proposed tool call |
+| `DENY` | Your runtime must block the proposed tool call |
+| `REVIEW` | Pause for human approval; do not execute yet |
+| Missing / unknown | Fail closed; do not execute |
 
 ## Success state
 
 When correctly wired:
 
-- Allowed calls execute locally after an `ALLOW` decision.
-- Denied calls raise `ToolBlockedError` and never reach the OS.
-- Every call -- ALLOW and DENY -- appears in your Sector8 telemetry.
-- DENY decisions trigger the alert dispatcher if a webhook or SNS ARN is configured.
+- Your runtime calls `/api/v1/evaluate` before local dispatch for tools routed through this integration
+- Your application honors the decision at the dispatch boundary
+- `ALLOW` actions may execute
+- `DENY` actions are blocked before execution
+- `REVIEW` decisions pause for approval and do not execute
+- Unknown, missing, or failed evaluate results fail closed and do not execute
+- Decision artifacts include `reason_code`, `decision_trace_id`, `evidence_hash`, and `policy_version_id`
 
 ## Evaluation response schema
 
 ```json
 {
-  "decision": "ALLOW|DENY",
-  "reason_code": null,
+  "decision": "ALLOW|DENY|REVIEW",
+  "reason_code": "ALLOW_PASS",
   "evidence_hash": "",
   "has_forensic_payload": false,
   "decision_trace_id": "uuid",
@@ -96,7 +180,7 @@ When correctly wired:
 }
 ```
 
-On `DENY`, `reason_code` is populated and `has_forensic_payload` is `true`.
+Exact `reason_code` and `policy_version_id` values depend on your active policy and environment. See [Evaluate](/api-reference/evaluate) for the full contract.
 
 ## Example -- blocked call
 
@@ -111,13 +195,28 @@ On `DENY`, `reason_code` is populated and `has_forensic_payload` is `true`.
 }
 ```
 
+## Example -- review required
+
+```json
+{
+  "decision": "REVIEW",
+  "reason_code": "HUMAN_APPROVAL_REQUIRED",
+  "evidence_hash": "9f2c1a88e0b14d3a7c6e5f4a2b1c0d9e8f7a6b5c4d3e2f1a0b9c8d7e6f5a4b3",
+  "has_forensic_payload": false,
+  "decision_trace_id": "6a1b2c3d-4e5f-6789-a012-3456789abcde",
+  "policy_version_id": "0dbca364d66447469637bafa2282e635124fcb99eecd6383038e3b652577ebc7"
+}
+```
+
+Do not execute until your approval flow resolves.
+
 ## Example -- allowed call
 
 ```json
 {
   "decision": "ALLOW",
-  "reason_code": null,
-  "evidence_hash": "",
+  "reason_code": "ALLOW_PASS",
+  "evidence_hash": "4cb7f786d1f3b57e6f98f3e60d2eb6b81c402d6d3efeb6c9551049f7c14df2f0",
   "has_forensic_payload": false,
   "decision_trace_id": "74dc8812-2cd7-4c0d-bfcb-98438a57fcb3",
   "policy_version_id": "0dbca364d66447469637bafa2282e635124fcb99eecd6383038e3b652577ebc7"
@@ -128,9 +227,16 @@ On `DENY`, `reason_code` is populated and `has_forensic_payload` is `true`.
 
 - **`session_id` is required for rate limiting.** A missing or static `session_id` will cause all requests to share a rate limit bucket.
 - **`owned_objects` must list what the caller actually owns.** BOLA checks compare `object_id` against this list -- an empty list means every object-level request is denied.
-- **Do not cache `ALLOW` decisions.** The Admission Controller evaluates every call independently. A cached `ALLOW` is not a security property.
+- **Do not cache `ALLOW` decisions.** Evaluate every call independently. A cached `ALLOW` is not a security property.
+- **Do not dispatch on `REVIEW`.** Pause for approval; treat it as non-executable until resolved.
+- **Do not treat adapter install as full coverage.** Only tool calls that go through evaluate or the adapter are governed.
 
 ## Honest scope
 
-This path governs tool calls that route through the adapter. It does not govern inline
-completions or chat content that never becomes a governed tool call.
+This path governs tool calls that route through evaluate or the adapter. It does not govern:
+
+- inline completions or chat content that never becomes a governed tool call
+- tools the runtime can still dispatch without calling evaluate
+- bypassed or unconfigured execution paths
+
+For MCP-connected Claude Code tooling, see the [Guard MCP Server](/guides/mcp-server). For the shared decision contract, see [Evaluate](/api-reference/evaluate) and [Guardrails](/guides/guardrails).
