@@ -24,6 +24,8 @@ export SECTOR8_API_KEY="YOUR_API_KEY"
 export SECTOR8_CLIENT_ID="YOUR_CLIENT_ID"
 ```
 
+Replace `SECTOR8_BASE_URL` with the endpoint issued to your environment when it differs from the public production example.
+
 ---
 
 ## Step 1: Check the gate
@@ -38,9 +40,11 @@ Expect a healthy response with active invariants and gate capabilities. If this 
 
 ---
 
-## Step 2: Evaluate a proposed action
+## Step 2: Prove DENY and ALLOW
 
-Send the action you are about to execute to Sector8 first. This example uses a shell command because the allow-or-block behavior is direct.
+Send the action you are about to execute to Sector8 first. Use one known-blocked action and one safe action so your runtime proves both sides of the contract.
+
+### DENY proof
 
 ```bash
 curl -s "$SECTOR8_BASE_URL/api/v1/evaluate" \
@@ -54,12 +58,12 @@ curl -s "$SECTOR8_BASE_URL/api/v1/evaluate" \
     },
     "caller_id": "quickstart-agent",
     "role": "developer",
-    "session_id": "quickstart-session",
+    "session_id": "quickstart-session-deny",
     "operation": "read"
   }'
 ```
 
-You should receive a decision artifact with fields like:
+You should receive a decision artifact like:
 
 ```json
 {
@@ -72,8 +76,44 @@ You should receive a decision artifact with fields like:
 }
 ```
 
+Your runtime must not dispatch this action.
+
+### ALLOW proof
+
+```bash
+curl -s "$SECTOR8_BASE_URL/api/v1/evaluate" \
+  -H "x-api-key: $SECTOR8_API_KEY" \
+  -H "x-client-id: $SECTOR8_CLIENT_ID" \
+  -H "content-type: application/json" \
+  -d '{
+    "tool_name": "bash",
+    "arguments": {
+      "command": "echo hello"
+    },
+    "caller_id": "quickstart-agent",
+    "role": "developer",
+    "session_id": "quickstart-session-allow",
+    "operation": "read"
+  }'
+```
+
+You should receive a decision artifact like:
+
+```json
+{
+  "decision": "ALLOW",
+  "reason_code": "ALLOW_PASS",
+  "evidence_hash": "4cb7f786d1f3b57e6f98f3e60d2eb6b81c402d6d3efeb6c9551049f7c14df2f0",
+  "has_forensic_payload": false,
+  "decision_trace_id": "17e797c0-eb5c-4f97-b4a1-2d3e4f5a6b7c",
+  "policy_version_id": "0dbca364d66447469637bafa2282e635124fcb99eecd6383038e3b652577ebc7"
+}
+```
+
+Your runtime may dispatch only after this `ALLOW`.
+
 <Note>
-The exact `reason_code` and `policy_version_id` depend on your active policy and environment. The important contract is that the runtime receives a decision before the proposed action executes.
+The exact `reason_code` and `policy_version_id` depend on your active policy and environment. REST responses use the field `decision`. Some SDKs expose the same value as `outcome` — check for `ALLOW` the same way either way.
 </Note>
 
 ---
@@ -109,7 +149,8 @@ except Exception as exc:
     print(f"Gate unavailable or invalid response; failing closed: {exc}")
     raise SystemExit(1)
 
-decision_value = decision.get("decision")
+# REST uses `decision`. Some SDKs expose the same value as `outcome`.
+decision_value = decision.get("decision") or decision.get("outcome")
 
 if decision_value == "ALLOW":
     # Dispatch the tool call here.
@@ -127,6 +168,10 @@ else:
 <Warning>
 Fail closed if the evaluate call fails, times out, or returns an unknown decision. Do not execute the proposed action by default.
 </Warning>
+
+<Note>
+REST field: `decision`. SDK field: often `outcome`. Both carry `ALLOW`, `DENY`, or `REVIEW`. Dispatch only on `ALLOW`.
+</Note>
 
 ---
 

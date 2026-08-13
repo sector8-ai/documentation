@@ -81,6 +81,10 @@ main().catch(console.error);
 
 Sector8 returns the verdict. Your application owns honoring that decision at dispatch time.
 
+<Note>
+REST `/api/v1/evaluate` responses use the field `decision`. This SDK exposes the same value as `outcome`. Check for `ALLOW` the same way either way.
+</Note>
+
 | Result | Runtime must |
 | --- | --- |
 | `ALLOW` (`decision.outcome === 'ALLOW'`) | May dispatch |
