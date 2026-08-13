@@ -1,15 +1,15 @@
 ---
 title: Guardrails
-description: How the Guard Module intercepts and governs every LLM tool call before execution.
+description: How Sector8 evaluates proposed AI actions before execution and returns ALLOW, DENY, or REVIEW.
 ---
 
 ## How it works
 
-Every tool call passes through a single gate, the Admission Controller, before reaching
-the OS. There is no path around it.
+When your runtime routes proposed actions through Sector8, each action is evaluated before side effects start. Honor the returned decision before dispatch.
 
 ```text
-LLM output
+Proposed AI action
+(tool call, API call, model call, or handoff)
     |
     v
 Spotlighting
@@ -21,26 +21,28 @@ Pre-filter classifier
 Rate limiter
     |
     v
-Admission Controller
+Admission and policy
     |
-    +-- DENY -> denial trace emitted
-    |           evidence_hash + policy_version_id + decision_trace_id
-    |           has_forensic_payload: true
+    +-- DENY   -> runtime blocks the action
+    |             decision artifact recorded
     |
-    +-- ALLOW -> tool executes
-                full audit telemetry recorded
+    +-- REVIEW -> runtime pauses for human approval
+    |
+    +-- ALLOW  -> runtime may execute the action
+                  decision artifact recorded
 ```
 
-If any component in the evaluation path raises an unhandled exception, the decision is
-`DENY`. The tool never executes. The failure produces a context-bound
-`GUARD_INTERNAL_ERROR` deny with `evidence_hash` and `has_forensic_payload: true`.
+<Info>
+Enforcement holds where the runtime routes proposed actions through Sector8 and fails closed on gate unavailability or unknown decisions. See the [Quickstart](/guides/quickstart) and [Evaluate API](/api-reference/evaluate).
+</Info>
+
+If evaluation fails unexpectedly while the action is routed through Sector8, treat the outcome as fail-closed: your runtime should not execute the proposed action. The gate may surface a context-bound `GUARD_INTERNAL_ERROR` deny with a decision artifact.
 
 ## The seven invariants
 
 ### INV-1 - Single execution gate
 
-No direct path from LLM output to tool execution. The Admission Controller is the only
-dispatch path.
+No authorized path from model output to tool execution that skips evaluation. The admission path is the dispatch control point.
 
 ### INV-2 - Dual gate requirement
 
@@ -48,28 +50,23 @@ Policy decides intent. Authorization decides capability. Execution requires both
 
 ### INV-3 - Per-step enforcement
 
-The Admission Controller runs per tool call, per agent step, after planning and before
-execution.
+Evaluation runs per tool call, per agent step, after planning and before execution.
 
 ### INV-4 - Untrusted executor model
 
-The LLM produces candidates. The control plane decides outcomes. LLM confidence is not a
-security property.
+The LLM produces candidates. The control plane decides outcomes. LLM confidence is not a security property.
 
 ### INV-5 - Spotlighting before policy
 
-Content is trust-tagged before policy evaluation. Untrusted content cannot promote its own
-trust level.
+Content is trust-tagged before policy evaluation. Untrusted content cannot promote its own trust level.
 
-### INV-6 - Boolean execution condition
+### INV-6 - Explicit execution condition
 
-`execute = (policy == ALLOW) AND (admission == PASS)`. A partial pass is a block.
+Execute only on an explicit `ALLOW` that your runtime honors. `DENY`, `REVIEW`, missing, or unknown decisions must not execute.
 
-### INV-7 - Deterministic forensic trace
+### INV-7 - Decision evidence on deny
 
-Every deny response surfaced to the caller carries `evidence_hash`,
-`has_forensic_payload: true`, `policy_version_id`, and `decision_trace_id`. CI enforces
-this across the deny surface.
+Deny responses surfaced to the caller include `evidence_hash`, `has_forensic_payload`, `policy_version_id`, and `decision_trace_id` so operators can correlate what was blocked and why.
 
 ## Admission Controller checks
 
@@ -91,16 +88,16 @@ Check 5 (security threats) runs before check 6 (compliance) so that the reason c
 
 ## Human review queue
 
-Borderline requests — flagged by the pre-filter as `REVIEW` — are routed to the review queue before execution. A human reviewer approves or denies via the API. If no action is taken within the TTL window, the request is auto-denied (fail-closed).
+Borderline requests — flagged as `REVIEW` — are routed to the review queue before execution. A human reviewer approves or denies via the API. If no action is taken within the TTL window, the request is auto-denied (fail-closed).
 
 ```
-Pre-filter: REVIEW
+Pre-filter or policy: REVIEW
     |
     v
-Review queue (Redis-backed, TTL: 15 min)
+Review queue (TTL window)
     |
-    +-- approved -> tool executes
-    +-- denied   -> DENY, reviewed_by in forensic envelope
+    +-- approved -> tool may execute
+    +-- denied   -> DENY, reviewer recorded with the decision
     +-- TTL expires -> DENY, reviewed_by="ttl_expired"
 ```
 
@@ -113,8 +110,8 @@ Before the full Admission Controller runs, a fast-path classifier routes request
 | Decision | Meaning | What happens |
 | --- | --- | --- |
 | `BLOCK` | High-confidence malicious | deny immediately, AC skipped |
-| `PASS` | High-confidence benign | allow immediately, AC skipped |
-| `REVIEW` | Ambiguous | full AC evaluation |
+| `PASS` | High-confidence benign | continue on the fast path |
+| `REVIEW` | Ambiguous | full AC evaluation or human review routing |
 
 The pre-filter also decodes and reclassifies obfuscated inputs. Covered forms include
 zero-width insertion, character arrays, hex escapes, base64 blobs, and rot13.
@@ -139,7 +136,7 @@ patterns.
 
 ## Forensic telemetry
 
-Every blocked call produces a tamper-evident record.
+Blocked and reviewed actions produce a decision artifact your operators can audit and correlate.
 
 ```json
 {
@@ -154,10 +151,12 @@ Every blocked call produces a tamper-evident record.
 
 | Field | Description |
 | --- | --- |
-| `evidence_hash` | SHA-256 of the blocked payload bound to call context |
-| `has_forensic_payload` | `true` on blocked records and `false` on allow |
-| `policy_version_id` | signed bundle hash proving which policy made the decision |
-| `decision_trace_id` | UUID linking the denial to the admission trace |
+| `evidence_hash` | Fingerprint of the decision evidence for correlation and integrity checks |
+| `has_forensic_payload` | Indicates whether additional forensic detail is attached to the record |
+| `policy_version_id` | Policy version or runtime policy identifier applied to the decision |
+| `decision_trace_id` | Unique audit identifier linking this decision to the evaluation path |
+
+Exact `reason_code` and `policy_version_id` values depend on your active policy and environment. See [Evaluate](/api-reference/evaluate) for the runtime contract.
 
 ## Compliance coverage
 
