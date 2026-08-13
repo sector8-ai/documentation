@@ -3,22 +3,21 @@ title: Onboarding
 description: Get a new Sector8 customer from runtime credentials to a verified evaluate-before-dispatch proof.
 ---
 
-Connect your application to Sector8, evaluate one proposed action before dispatch, honor the decision, and confirm the integration worked before you write more code.
+Connect your application to Sector8 with the credentials issued to your environment, prove both an `ALLOW` path and a known `DENY` path, and confirm your runtime honors both before you write more code.
 
-Telemetry can follow later. Telemetry alone is not onboarding success.
+Telemetry can follow later. Telemetry or health alone is not onboarding success.
 
 ## What you need
 
-- A Sector8 runtime API key
-- A Sector8 client ID
+- The Sector8 runtime credentials issued to your environment (`SECTOR8_API_KEY` and `SECTOR8_CLIENT_ID`)
 - Python 3.10+, Node.js 18+, or a runtime that can call `POST /api/v1/evaluate`
-- Access to the application path where you can block dispatch on non-`ALLOW` decisions
+- Access to the application path where you can allow dispatch, block on `DENY`, and fail closed on errors
 
 <Info>
-Contact [support@sector8.ai](mailto:support@sector8.ai) or [book a demo](https://sector8.ai/contact) if you still need your runtime credentials.
+Use the credentials issued to your environment. Contact [support@sector8.ai](mailto:support@sector8.ai) or [book a demo](https://sector8.ai/contact) if you do not have them yet.
 </Info>
 
-Public docs use the production host `https://sdkapi.sector8.ai`. Use the endpoint and credentials issued for your environment.
+Public docs use the production host `https://sdkapi.sector8.ai`. Use the endpoint and credentials issued to your environment.
 
 ## Choose your path
 
@@ -40,7 +39,7 @@ For Claude Code or MCP-connected clients, also see the [Guard MCP Server](/guide
 
 <Steps>
   <Step title="Set your credentials">
-    Inject credentials through the environment. Do not commit runtime keys to source control.
+    Inject the credentials issued to your environment through env vars. Do not generate, share, or commit runtime keys in source control.
 
     ```bash
     export SECTOR8_BASE_URL="https://sdkapi.sector8.ai"
@@ -67,8 +66,13 @@ For Claude Code or MCP-connected clients, also see the [Guard MCP Server](/guide
     - [Guard MCP Server](/guides/mcp-server)
   </Step>
 
-  <Step title="Honor the decision">
-    Your first successful run should evaluate a proposed action and then:
+  <Step title="Prove ALLOW and DENY">
+    Run two evaluate-before-dispatch proofs on the same integration path:
+
+    1. A safe proposed action that returns `ALLOW`, then dispatch only in that branch
+    2. A known unsafe or policy-blocked action that returns `DENY`, and confirm it never executes
+
+    Honor every decision the same way:
 
     | Result | Runtime must |
     | --- | --- |
@@ -84,15 +88,15 @@ For Claude Code or MCP-connected clients, also see the [Guard MCP Server](/guide
     Confirm:
 
     - health responds for your environment
-    - one real `evaluate` call returned a decision artifact
-    - your runtime dispatched only on `ALLOW`
-    - `DENY` / `REVIEW` / unknown / error paths did not execute
-    - the decision artifact includes `reason_code`, `decision_trace_id`, `evidence_hash`, and `policy_version_id`
+    - the `ALLOW` path returned a decision artifact and your app dispatched only then
+    - the `DENY` path returned a decision artifact and your app blocked execution
+    - `REVIEW` / unknown / error paths do not execute
+    - both decision artifacts include `reason_code`, `decision_trace_id`, `evidence_hash`, and `policy_version_id`
   </Step>
 </Steps>
 
 <Check>
-You are done when one real evaluate-before-dispatch proof succeeds against your issued endpoint, your runtime honors the decision, and you can trace the decision artifact in Sector8.
+You are onboarded when both an `ALLOW` path and a known `DENY` path are proven against the credentials and endpoint issued to your environment, and your application honors both at dispatch.
 </Check>
 
 ## Common mistakes
@@ -101,7 +105,8 @@ You are done when one real evaluate-before-dispatch proof succeeds against your 
 Use `https://sdkapi.sector8.ai` for public production examples. Do not paste real runtime keys into docs, tickets, chat, or source control.
 </Warning>
 
-- Treating connection health or telemetry as proof of enforcement
+- Treating connection health, telemetry, or a single `ALLOW` as full onboarding proof
+- Skipping a known unsafe or policy-blocked `DENY` proof
 - Logging an LLM event without calling `evaluate` before tool dispatch
 - Treating `REVIEW` as a generic deny instead of an approval pause
 - Hardcoding `SECTOR8_API_KEY` or `SECTOR8_CLIENT_ID` in source
