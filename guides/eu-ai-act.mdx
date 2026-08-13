@@ -1,34 +1,37 @@
 ---
 title: EU AI Act
-description: How Sector8 covers the EU AI Act requirements enforced at the LLM tool execution boundary
+description: How Sector8 can support EU AI Act-oriented controls and evidence at the AI tool execution boundary.
 ---
 
-Sector8 enforces EU AI Act obligations **at the execution boundary** -- before any tool call reaches the OS.
-The coverage score is computed from live enforcement data, not a self-assessment checklist.
+When your runtime routes proposed actions through Sector8, the gate can support EU AI Act-oriented obligations at the execution boundary -- before a proposed tool call is dispatched locally.
 
-## Article coverage
+Sector8 does not make your organization EU AI Act-compliant by itself. Use these controls and evidence records inside a broader AI governance program with legal review.
 
-| Article | Requirement | How Sector8 covers it |
-|---------|-------------|----------------------|
-| **Art. 9** | Risk management system | Fail-closed Admission Controller with 7 CI-verified invariants. Any unhandled exception produces a `DENY` -- the system cannot fail open. |
-| **Art. 10** | Data governance | ComplianceGate (AC-6) scans every tool call for PII/PHI before execution. Data never moves until a policy decision is made. |
-| **Art. 12** | Logging and record-keeping | Every decision -- ALLOW and DENY -- produces a tamper-evident record with `evidence_hash`, `policy_version_id`, and `decision_trace_id`. |
-| **Art. 13** | Transparency | Policy version metadata is embedded in every telemetry row. Coverage accumulates as historical rows build up. |
-| **Art. 14** | Human oversight | The review queue routes borderline decisions to a human reviewer before execution. Unanswered items are auto-denied (fail-closed). |
+## Article support
+
+| Article | Requirement | How Sector8 can support it |
+|---------|-------------|---------------------------|
+| **Art. 9** | Risk management system | Fail-closed evaluate path with invariants on routed integrations. Evaluation failures should not fail open. |
+| **Art. 10** | Data governance | ComplianceGate (AC-6) can scan routed tool calls for PII/PHI before dispatch when configured. |
+| **Art. 12** | Logging and record-keeping | Evaluated decisions produce evidence fields such as `evidence_hash`, `policy_version_id`, and `decision_trace_id`. |
+| **Art. 13** | Transparency | Policy version metadata can accumulate in telemetry so operators can see which policy applied. |
+| **Art. 14** | Human oversight | `REVIEW` decisions pause for human approval before execution; unanswered review items can auto-deny (fail-closed). |
 
 <Info>
-Art. 13 coverage depends on policy-version metadata accumulating in telemetry over time. A fresh deployment will show it as not yet covered until enough rows exist -- this is correct behaviour, not a gap.
+Art. 13 dashboard coverage may depend on policy-version metadata accumulating in telemetry over time. A fresh deployment can show it as not yet covered until enough rows exist -- this is expected, not automatic certification.
 </Info>
 
 ## Readiness score
 
-The EU AI Act score is available on the compliance dashboard (`app.sector8.ai/c/compliance`) and via the API:
+Where enabled, an EU AI Act readiness score may be available on the compliance dashboard and via API for your environment. Treat scores as operational readiness signals for configured controls, not legal certification.
 
 ```bash
 curl -s "https://sdkapi.sector8.ai/api/v1/compliance/summary" \
-  -H "x-client-id: $CLIENT_ID" \
-  -H "x-api-key: $API_KEY" | python -m json.tool
+  -H "x-client-id: $SECTOR8_CLIENT_ID" \
+  -H "x-api-key: $SECTOR8_API_KEY" | python -m json.tool
 ```
+
+Use the credentials issued to your environment. Public examples use the production host.
 
 ```json
 {
@@ -43,12 +46,14 @@ curl -s "https://sdkapi.sector8.ai/api/v1/compliance/summary" \
 }
 ```
 
-`covered: false` on Art. 13 means not enough historical telemetry rows yet -- not a violation.
+`covered: false` on Art. 13 often means not enough historical telemetry rows yet -- not an automatic legal finding.
 
 ## What this means in practice
 
-- **Art. 9** is covered because the codebase has a fail-closed risk management system with CI-verified invariants -- not because someone ticked a box.
-- **Art. 12** is covered because every decision produces a forensic log with an evidence hash -- verifiable at audit time.
-- **Art. 14** is covered because the review queue routes flagged calls to a human before execution.
+- **Art. 9** support means the routed evaluate path can fail closed with invariant-backed risk controls -- not that a checkbox was ticked.
+- **Art. 12** support means evaluated decisions can produce evidence fields for audit -- when the action was routed through Sector8.
+- **Art. 14** support means `REVIEW` can pause risky actions for human approval before dispatch.
 
-These are code facts. They can be verified by reading the source.
+Honor `ALLOW`, `DENY`, and `REVIEW` at the dispatch boundary. Missing, unknown, or failed evaluate results should fail closed on the routed path.
+
+See [Compliance overview](/guides/compliance), [Guardrails](/guides/guardrails), and [Evaluate](/api-reference/evaluate).

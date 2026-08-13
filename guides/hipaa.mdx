@@ -1,19 +1,25 @@
 ---
 title: HIPAA
-description: How Sector8 enforces HIPAA controls for PHI protection in AI applications
+description: How Sector8 supports HIPAA-oriented PHI controls at the AI tool execution boundary.
 ---
 
-Sector8 enforces HIPAA controls **before data moves** - at the tool call boundary, before the OS executes the request. Set `COMPLIANCE_LEVEL=HIPAA` to activate PHI pattern matching at admission check 6 (ComplianceGate).
+When your runtime routes proposed actions through Sector8 and HIPAA compliance packs are active, Sector8 can enforce PHI-oriented controls before local dispatch.
 
-## Controls enforced at tool boundary
+Sector8 does not make your organization HIPAA-compliant by itself and does not replace BAAs, privacy programs, or legal review.
 
-| HIPAA Requirement | How Sector8 enforces it |
-|------------------|------------------------|
-| 164.312(a) - Access control | Tool allowlist + RBAC enforced at admission check 3 |
-| 164.312(b) - Audit controls | Tamper-evident audit trail on every tool call, ALLOW and DENY |
-| 164.312(c) - Integrity | HMAC-SHA256 signed policy bundles prevent policy tampering |
-| 164.312(e) - Transmission security | Blocks data transmission to unlisted external domains |
-| Minimum necessary standard | ComplianceGate (AC-6) blocks tool calls whose payload contains PHI patterns, preventing access beyond what the request requires |
+Set `COMPLIANCE_LEVEL=HIPAA` to activate PHI pattern matching at admission check 6 (ComplianceGate) for routed evaluate calls.
+
+## Controls supported at the tool boundary
+
+| HIPAA requirement | How Sector8 can support it |
+|------------------|---------------------------|
+| 164.312(a) - Access control | Tool allowlist and role checks on the routed admission path |
+| 164.312(b) - Audit controls | Decision evidence on evaluated calls, including `ALLOW`, `DENY`, and `REVIEW` |
+| 164.312(c) - Integrity | Policy version identifiers and evidence fingerprints for decision correlation |
+| 164.312(e) - Transmission security | Blocks data transmission to unlisted external domains on governed paths |
+| Minimum necessary standard | ComplianceGate (AC-6) can block tool calls whose payload contains configured PHI patterns |
+
+Coverage applies to tool calls routed through evaluate or a Sector8 connector. Unconnected paths are not automatically covered.
 
 ## PHI detection
 
@@ -29,17 +35,21 @@ ComplianceGate (AC-6) uses regex-based pattern matching to detect PHI. The shipp
 
 Detection is pattern-based, not semantic. Clinical notes or narrative text that do not contain these structured identifiers are not matched by the HIPAA pack. The GDPR PII patterns (email, phone, SSN, and others) also apply when `COMPLIANCE_LEVEL=HIPAA`.
 
-## Audit record format
+## Decision evidence
 
-Every PHI access attempt produces:
+A PHI-related denial on the routed path produces a decision artifact such as:
 
 ```json
 {
-  "threat_type": "pii_exfiltration",
-  "severity": "critical",
-  "evidence_hash": "bdbde1558fb883...",
+  "decision": "DENY",
+  "reason_code": "HIPAA_MINIMUM_NECESSARY_VIOLATION",
+  "evidence_hash": "bdbde1558fb883573b0f6e8630ccba1edaf6bed8cb035fa6a48912809149f287",
   "has_forensic_payload": true,
-  "policy_version": "eea811e4f6d3c2...",
-  "decision_trace_id": "17e797c0-eb5c-4f97..."
+  "policy_version_id": "0dbca364d66447469637bafa2282e635124fcb99eecd6383038e3b652577ebc7",
+  "decision_trace_id": "17e797c0-eb5c-4f97-b4a1-2d3e4f5a6b7c"
 }
 ```
+
+Your runtime must honor the decision: block on `DENY`, pause on `REVIEW`, and fail closed on missing, unknown, or failed evaluate results.
+
+See [Compliance overview](/guides/compliance) and [Evaluate](/api-reference/evaluate).
