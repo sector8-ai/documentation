@@ -1,11 +1,11 @@
 ---
 title: Guard MCP Server
-description: Govern Claude Code and MCP-connected agent tool calls with evaluate-before-dispatch decisions and fail-closed runtime behavior.
+description: Govern Claude Code tool calls routed through the sector8-guard MCP server with evaluate-before-dispatch decisions and fail-closed connector behavior.
 ---
 
 ## What it does
 
-The Guard MCP Server connects Claude Code (and other MCP-compatible clients) to Sector8 so proposed tool calls are evaluated before they execute.
+Sector8 governs Claude Code tool calls that are routed through the `sector8-guard` MCP server. Other MCP-compatible clients can use the same connector when they route tools the same way.
 
 When a tool call is routed through `sector8-guard`, Sector8 returns `ALLOW`, `DENY`, or `REVIEW` using the same admission and policy path as the REST evaluate API.
 
@@ -99,14 +99,14 @@ Honor the returned decision before any side effect starts. Policy, telemetry, an
 
 | `decision` | Runtime behavior |
 | --- | --- |
-| `ALLOW` | The MCP server may execute the proposed tool call |
-| `DENY` | The MCP server must block the proposed tool call |
+| `ALLOW` | The MCP connector may execute the proposed tool call |
+| `DENY` | The MCP connector must block the proposed tool call |
 | `REVIEW` | Pause for human approval; do not execute yet |
-| Missing / unknown | Fail closed; do not execute |
+| Missing / unknown | Fail closed on the connector path; do not execute |
 
 ### Fail-closed on evaluation failure
 
-If evaluation fails while the tool call is routed through `sector8-guard`, treat the outcome as fail-closed: the tool should not execute.
+If the routed evaluate path is unavailable or returns an invalid decision while the tool call is going through `sector8-guard`, the connector should fail closed and not execute that call. Fail-closed applies to the connected MCP path; it does not stop actions on bypassed or unconfigured tool paths.
 
 Returned denial may include:
 
@@ -239,7 +239,7 @@ Expected when those calls are routed through `sector8-guard`:
 
 - `echo hello` -> `ALLOW`
 - `rm -rf /` -> `DENY`
-- unknown or missing decisions -> fail closed; do not execute
+- unknown, missing, or unavailable evaluate results -> connector fails closed and does not execute that call
 
 ## Fleet deployment
 
