@@ -1,15 +1,22 @@
 ---
 title: Python SDK
-description: Install the Python SDK, send a real event to production, and confirm the integration worked.
+description: Use the Python SDK to evaluate proposed actions before dispatch, then optionally send telemetry.
 ---
 
-Use this path when your application runs on Python and you want the fastest production onboarding flow.
+Use this path when your Python application should ask Sector8 whether a proposed action may execute, then honor the returned decision before local dispatch.
+
+Telemetry helpers are available on the same client. Telemetry alone is not enforcement.
+
+<Info>
+Enforcement requires your runtime to call `evaluate` before dispatch and honor the result. Unconnected tool paths are not automatically covered.
+</Info>
 
 ## Prerequisites
 
 - Python 3.10 or later
 - `SECTOR8_API_KEY`
 - `SECTOR8_CLIENT_ID`
+- A runtime path where you can block dispatch on non-`ALLOW` decisions
 
 ## Install the SDK
 
@@ -26,10 +33,64 @@ export SECTOR8_API_KEY=your_api_key
 export SECTOR8_CLIENT_ID=your_client_id
 ```
 
-## Send your first event
+Public examples use the production host. Use the endpoint and credentials issued for your environment.
 
-```bash
-python - <<'PY'
+## Evaluate before dispatch
+
+```python
+import asyncio
+import os
+import sector8
+
+async def main():
+    client = sector8.setup(
+        api_key=os.environ["SECTOR8_API_KEY"],
+        client_id=os.environ["SECTOR8_CLIENT_ID"],
+    )
+
+    decision = await client.evaluate(
+        "bash",
+        {"command": "cat /etc/passwd"},
+        caller_id="python-sdk-agent",
+        role="developer",
+        session_id="python-sdk-session",
+        operation="read",
+    )
+
+    if decision.allowed:
+        # Dispatch the tool call here.
+        print("ALLOW", decision.reason_code, decision.decision_trace_id)
+    else:
+        # DENY or any non-ALLOW outcome: do not dispatch.
+        print("Blocked before execution:", decision.outcome, decision.reason_code)
+        print("Evidence hash:", decision.evidence_hash)
+        print("Trace ID:", decision.decision_trace_id)
+
+    await client.close()
+
+asyncio.run(main())
+```
+
+Sector8 returns the verdict. Your application owns honoring that decision at dispatch time.
+
+| Result | Runtime must |
+| --- | --- |
+| `ALLOW` (`decision.allowed` is `True`) | May dispatch |
+| `DENY` | Block; do not dispatch |
+| `REVIEW` / non-ALLOW | Pause or block; do not dispatch |
+| SDK error, timeout, or invalid response | Fail closed; do not dispatch |
+
+<Warning>
+Never execute an action unless `decision.allowed` is `True`. Fail closed on evaluate errors. Fail-closed applies to tools routed through this SDK path; it does not stop bypassed or unconfigured tool paths.
+</Warning>
+
+See [Evaluate](/api-reference/evaluate) for the shared `ALLOW | DENY | REVIEW` contract and [Non-MCP integration](/guides/non-mcp-integration) for custom runtime wiring.
+
+## Optional: send telemetry
+
+Telemetry records what happened. It does not replace evaluate-before-dispatch.
+
+```python
 import asyncio
 import os
 import sector8
@@ -43,7 +104,7 @@ async def main():
     result = await client.save_telemetry(
         provider="openai",
         model="gpt-4",
-        prompt="Sector8 Python SDK onboarding test",
+        prompt="Sector8 Python SDK telemetry test",
         completion="Telemetry sent successfully",
         tokens_used=24,
         latency_ms=120,
@@ -55,20 +116,9 @@ async def main():
     await client.close()
 
 asyncio.run(main())
-PY
 ```
 
-Expected output:
-
-```text
-success
-```
-
-<Tip>
-The Python SDK defaults to the production Guard Module at `https://sdkapi.sector8.ai`. Override `base_url` only for staging or custom environments.
-</Tip>
-
-## Use the three-line setup
+Short helper:
 
 ```python
 import sector8
@@ -81,56 +131,36 @@ client = sector8.setup(
 client.log_llm_call("openai", "gpt-4", tokens=150, cost=0.003)
 ```
 
-## Use the async API directly
-
-```python
-import asyncio
-import sector8
-
-async def main():
-    client = sector8.setup(
-        api_key="your_api_key",
-        client_id="your_client_id",
-    )
-    await client.save_telemetry(
-        provider="openai",
-        model="gpt-4",
-        prompt="hello",
-        completion="world",
-        tokens_used=10,
-        latency_ms=80,
-        cost=0.001,
-        success=True,
-    )
-    await client.close()
-
-asyncio.run(main())
-```
+<Tip>
+The Python SDK defaults to `https://sdkapi.sector8.ai`. Override `base_url` only when targeting a non-default environment you intentionally control.
+</Tip>
 
 ## Verify the integration
 
-1. Check production health:
+1. Check health:
 
 ```bash
 curl https://sdkapi.sector8.ai/api/health
 ```
 
-2. Confirm your script returned `success`
-3. Confirm the event appears in Sector8 telemetry or the dashboard
+2. Confirm an `evaluate` call returns a decision artifact
+3. Confirm your runtime dispatches only on `ALLOW`
+4. Optionally confirm telemetry appears in Sector8 if you send it
 
 <Check>
-You are done when your Python script returns `success` and you can see the event in Sector8.
+You are done when your Python runtime evaluates before dispatch, honors non-`ALLOW` decisions by blocking, and fails closed on evaluate errors.
 </Check>
 
 ## Common mistakes
 
+- Logging telemetry without calling `evaluate` before tool dispatch
+- Dispatching on any non-error response instead of checking `decision.allowed`
 - Missing `SECTOR8_CLIENT_ID`
-- Forgetting to `await client.save_telemetry(...)`
-- Overriding `base_url` to an older host
+- Overriding `base_url` to an older host by accident
 
 ## Next steps
 
-- [Onboarding](/guides/onboard)
 - [Quickstart](/guides/quickstart)
 - [Non-MCP integration](/guides/non-mcp-integration)
 - [Guard MCP Server](/guides/mcp-server)
+- [Evaluate API](/api-reference/evaluate)
