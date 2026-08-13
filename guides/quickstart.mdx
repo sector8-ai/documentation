@@ -8,7 +8,7 @@ description: Route your first proposed AI action through Sector8 and honor the r
 This guide gets you to the first important proof point: your application asks Sector8 whether a proposed AI action may execute, then your runtime honors the returned decision.
 
 <Info>
-Start with the endpoint and credentials issued for your environment. Use staging for onboarding and production for live traffic.
+Use the endpoint and credentials issued for your environment.
 </Info>
 
 ## Prerequisites
@@ -19,15 +19,9 @@ Start with the endpoint and credentials issued for your environment. Use staging
 - A runtime path where you can block execution when Sector8 returns `DENY`
 
 ```bash
-export SECTOR8_BASE_URL="https://stgsdkapi.sector8.ai"
+export SECTOR8_BASE_URL="https://sdkapi.sector8.ai"
 export SECTOR8_API_KEY="YOUR_API_KEY"
 export SECTOR8_CLIENT_ID="YOUR_CLIENT_ID"
-```
-
-For production traffic, use:
-
-```bash
-export SECTOR8_BASE_URL="https://sdkapi.sector8.ai"
 ```
 
 ---
