@@ -1,7 +1,11 @@
 ---
 title: POST /api/v1/telemetry
-description: Ingest a completed LLM interaction for telemetry, compliance processing, and guard analysis.
+description: Ingest a completed LLM interaction for telemetry, compliance processing, and post-execution analysis.
 ---
+
+`POST /api/v1/telemetry` is the post-execution ingest path. It records what happened after an interaction completes.
+
+Telemetry is not enforcement. Use [`POST /api/v1/evaluate`](/api-reference/evaluate) before dispatch when you need an `ALLOW`, `DENY`, or `REVIEW` decision.
 
 ## Request
 
@@ -30,6 +34,8 @@ Content-Type: application/json
   }
 }
 ```
+
+Public examples use the production host. Use the endpoint and credentials issued to your environment. Do not commit real keys to source control.
 
 ## Request fields
 
@@ -77,19 +83,20 @@ Content-Type: application/json
 | `status` | API processing result. Successful ingestion returns `success`. |
 | `message` | Human-readable ingest confirmation. |
 | `timestamp` | UTC timestamp for the ingest result. |
-| `guard_analysis` | Server-side security analysis for the interaction. Contents vary by event and may include threat type, severity, evidence linkage, and policy metadata. |
+| `guard_analysis` | Optional server-side analysis for the interaction. Contents vary by event and may include threat type, severity, evidence fingerprint, and policy metadata. |
 
 ## What the endpoint does
 
-`POST /api/v1/telemetry` is the post-execution ingest path. The backend:
+For authenticated telemetry requests, the backend can:
 
-- validates `x-api-key` and `x-client-id`
-- applies compliance redaction to prompt and completion data
-- runs guard analysis on the sanitized interaction
-- stores telemetry, compliance metadata, and guard-analysis records
-- creates incidents and alerts for blocked threats
+- validate `x-api-key` and `x-client-id`
+- apply compliance redaction to prompt and completion data when configured
+- run post-execution guard analysis on the sanitized interaction
+- store telemetry, compliance metadata, and analysis records
+- create incidents and alerts for detected threats when those integrations are configured
 
 <Tip>
-Use `/api/v1/evaluate` when you need pre-execution tool enforcement. Use `/api/v1/telemetry`
-when you are logging a completed interaction for observability and post-execution analysis.
+Use `/api/v1/evaluate` for pre-execution control. Use `/api/v1/telemetry` to log a completed interaction for observability and post-execution analysis. Logging telemetry alone does not block unsafe tool dispatch.
 </Tip>
+
+See [API Overview](/api-reference/overview), [Evaluate](/api-reference/evaluate), and [Onboarding](/guides/onboard).
