@@ -1,38 +1,59 @@
 ---
 title: Compliance Overview
-description: How Sector8 enforces GDPR, HIPAA, EU AI Act, PCI-DSS, ISO 27001, and SOC 2 at the tool execution boundary
+description: How Sector8 provides pre-execution controls and decision evidence that support compliance workflows at the tool boundary.
 ---
 
-Sector8 enforces compliance controls **before data moves** -- at the tool call boundary, not in post-execution audit logs.
+Sector8 provides pre-execution controls and decision evidence at the tool-call boundary. These controls can support GDPR, HIPAA, EU AI Act, PCI-DSS, ISO 27001, and SOC 2 workflows when your runtime routes proposed actions through evaluate and honors the decision.
+
+Sector8 does not certify your organization as compliant and does not replace legal review, DPIAs, BAAs, or full compliance automation.
+
+<Info>
+Use Sector8 as an execution-boundary control and evidence source inside a broader compliance program.
+</Info>
 
 ## The pre-execution advantage
 
-Traditional compliance tools operate after the fact. Sector8 intercepts before the OS executes the tool call. Data never moves until a policy decision is made.
+Traditional compliance tooling often operates after the fact. When your runtime routes proposed actions through Sector8, evaluation happens before local dispatch so policy can block risky data movement before the side effect starts.
 
-| Framework | Key controls enforced |
-|-----------|----------------------|
-| [GDPR](/guides/gdpr) | PII detection, data minimisation, Art. 5/17 audit trail |
-| [HIPAA](/guides/hipaa) | PHI patterns, minimum-necessary access, §164.312 logging |
-| [EU AI Act](/guides/eu-ai-act) | Risk management (Art. 9), data governance (Art. 10), logging (Art. 12), transparency (Art. 13), human oversight (Art. 14) |
-| PCI-DSS v4 | PAN/CVV detection, CDE path blocking, Req. 10.2 + 6.3.2 |
-| ISO 27001 | A.8.2, A.9.4, A.12.4, A.14.2 |
-| SOC 2 Type II | CC6.1, CC6.6, CC7.2, CC9.2 |
+| Framework | Controls supported at the tool boundary |
+|-----------|-----------------------------------------|
+| [GDPR](/guides/gdpr) | PII detection, data minimisation, Art. 5/17-oriented audit evidence |
+| [HIPAA](/guides/hipaa) | PHI pattern checks, minimum-necessary style blocking, audit evidence |
+| [EU AI Act](/guides/eu-ai-act) | Risk controls, logging evidence, human oversight via `REVIEW` |
+| PCI-DSS v4 | PAN/CVV detection, CDE path blocking support |
+| ISO 27001 | Access, logging, and change-control support at the execution boundary |
+| SOC 2 Type II | Logical access, monitoring, and change-evidence support |
 
-## Audit trail
+Exact enforcement depends on your active policy, compliance pack configuration, and which tool paths are routed through Sector8.
 
-Every blocked call produces a tamper-evident record:
+## Decision evidence
+
+Blocked and reviewed actions produce a decision artifact your operators can audit and correlate:
 
 ```json
 {
-  "evidence_hash": "bdbde1558fb883...",
+  "decision": "DENY",
+  "reason_code": "GDPR_DATA_MINIMISATION_VIOLATION",
+  "evidence_hash": "bdbde1558fb883573b0f6e8630ccba1edaf6bed8cb035fa6a48912809149f287",
   "has_forensic_payload": true,
-  "policy_version": "eea811e4f6d3c2...",
-  "decision_trace_id": "17e797c0-eb5c-4f97..."
+  "policy_version_id": "0dbca364d66447469637bafa2282e635124fcb99eecd6383038e3b652577ebc7",
+  "decision_trace_id": "17e797c0-eb5c-4f97-b4a1-2d3e4f5a6b7c"
 }
 ```
 
-- `evidence_hash` -- SHA-256 of the blocked payload. Tamper-evident.
-- `policy_version` -- HMAC-SHA256 signed bundle. Proves which policy made the decision.
-- `decision_trace_id` -- Links the denial to the full admission trace.
+| Field | Description |
+| --- | --- |
+| `evidence_hash` | Fingerprint of the decision evidence for correlation and integrity checks |
+| `has_forensic_payload` | Indicates whether additional forensic detail is attached |
+| `policy_version_id` | Policy version or runtime policy identifier applied to the decision |
+| `decision_trace_id` | Unique audit identifier linking this decision to the evaluation path |
 
-See [Guardrails](/guides/guardrails#forensic-telemetry) for the full telemetry reference.
+Honor `ALLOW`, `DENY`, and `REVIEW` before dispatch. Missing, unknown, or failed evaluate results should fail closed on the routed path.
+
+See [Guardrails](/guides/guardrails#forensic-telemetry), [Evaluate](/api-reference/evaluate), and the framework pages below.
+
+## Framework guides
+
+- [GDPR](/guides/gdpr)
+- [HIPAA](/guides/hipaa)
+- [EU AI Act](/guides/eu-ai-act)
