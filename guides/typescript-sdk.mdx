@@ -1,15 +1,22 @@
 ---
 title: TypeScript SDK
-description: Install the TypeScript SDK, verify connectivity to production, and log your first event.
+description: Use the TypeScript SDK to evaluate proposed actions before dispatch, then optionally send telemetry.
 ---
 
-Use this path when your application runs on Node.js or TypeScript and you want a direct SDK integration instead of calling the REST API yourself.
+Use this path when your Node.js or TypeScript application should ask Sector8 whether a proposed action may execute, then honor the returned decision before local dispatch.
+
+Telemetry helpers are available on the same client. Telemetry alone is not enforcement.
+
+<Info>
+Enforcement requires your runtime to call `evaluate` before dispatch and honor the result. Unconnected tool paths are not automatically covered.
+</Info>
 
 ## Prerequisites
 
 - Node.js 18 or later
 - `SECTOR8_API_KEY`
 - `SECTOR8_CLIENT_ID`
+- A runtime path where you can block dispatch, pause for `REVIEW`, and fail closed on errors
 
 ## Install the SDK
 
@@ -26,7 +33,70 @@ export SECTOR8_API_KEY=your_api_key
 export SECTOR8_CLIENT_ID=your_client_id
 ```
 
-## Send your first event
+Public examples use the production host. Use the endpoint and credentials issued for your environment.
+
+## Evaluate before dispatch
+
+```typescript
+import sector8 from '@sector8/sdk';
+
+async function main() {
+  const client = sector8.setup({
+    apiKey: process.env.SECTOR8_API_KEY!,
+    clientId: process.env.SECTOR8_CLIENT_ID!,
+  });
+
+  try {
+    const decision = await client.evaluate({
+      tool_name: 'bash',
+      arguments: { command: 'cat /etc/passwd' },
+      caller_id: 'typescript-sdk-agent',
+      role: 'developer',
+      session_id: 'typescript-sdk-session',
+    });
+
+    if (decision.outcome === 'ALLOW') {
+      // Dispatch the tool call here.
+      console.log('ALLOW', decision.reason_code, decision.decision_trace_id);
+    } else if (decision.outcome === 'DENY') {
+      console.log('Blocked before execution:', decision.reason_code);
+      console.log('Evidence hash:', decision.evidence_hash);
+      console.log('Trace ID:', decision.decision_trace_id);
+    } else if (decision.outcome === 'REVIEW') {
+      console.log('Paused for approval; do not dispatch:', decision);
+    } else {
+      console.error('Unknown decision contract; failing closed:', decision);
+      // Do not dispatch.
+    }
+  } catch (error) {
+    console.error('Gate unavailable or invalid response; failing closed:', error);
+    // Do not dispatch.
+  } finally {
+    await client.close();
+  }
+}
+
+main().catch(console.error);
+```
+
+Sector8 returns the verdict. Your application owns honoring that decision at dispatch time.
+
+| Result | Runtime must |
+| --- | --- |
+| `ALLOW` (`decision.outcome === 'ALLOW'`) | May dispatch |
+| `DENY` | Block; do not dispatch |
+| `REVIEW` | Pause / route to approval; do not dispatch |
+| Missing, unknown, error, or timeout | Fail closed; do not dispatch |
+
+<Warning>
+Never execute an action unless `decision.outcome === 'ALLOW'`. Fail closed on evaluate errors. Fail-closed applies to tools routed through this SDK path; it does not stop bypassed or unconfigured tool paths.
+</Warning>
+
+See [Evaluate](/api-reference/evaluate) for the shared `ALLOW | DENY | REVIEW` contract and [Non-MCP integration](/guides/non-mcp-integration) for custom runtime wiring.
+
+## Optional: send telemetry
+
+Telemetry records what happened. It does not replace evaluate-before-dispatch.
 
 ```typescript
 import sector8 from '@sector8/sdk';
@@ -49,7 +119,7 @@ async function main() {
     cost: 0.001,
     latency_ms: 120,
     success: true,
-    prompt: 'Sector8 TypeScript SDK onboarding test',
+    prompt: 'Sector8 TypeScript SDK telemetry test',
     completion: 'Telemetry sent successfully',
   });
 
@@ -59,17 +129,7 @@ async function main() {
 main().catch(console.error);
 ```
 
-Expected output:
-
-```text
-Connected: true
-```
-
-<Tip>
-The TypeScript SDK defaults to the production Guard Module at `https://sdkapi.sector8.ai`. You only need `baseUrl` when targeting a non-production environment.
-</Tip>
-
-## Minimal setup
+Minimal telemetry helper:
 
 ```typescript
 import sector8 from '@sector8/sdk';
@@ -87,36 +147,38 @@ await client.logLLMCall({
 });
 ```
 
+<Tip>
+The TypeScript SDK defaults to `https://sdkapi.sector8.ai`. You only need `baseUrl` / `endpoint` when targeting a non-default environment you intentionally control.
+</Tip>
+
 ## Verify the integration
 
-1. Run:
+1. Check health:
 
 ```bash
 curl https://sdkapi.sector8.ai/api/health
 ```
 
-2. Confirm `client.testConnection()` returns `true`
-3. Confirm the event appears in Sector8 telemetry or the dashboard
+2. Confirm an `evaluate` call returns a decision artifact
+3. Confirm your runtime dispatches only on `ALLOW`, pauses on `REVIEW`, and fails closed on unknown/error
+4. Optionally confirm telemetry appears in Sector8 if you send it
 
 <Check>
-You are done when `testConnection()` returns `true` and one `logLLMCall()` event is visible in Sector8.
+You are done when your TypeScript runtime evaluates before dispatch, blocks on `DENY`, pauses on `REVIEW`, and fails closed on missing/unknown/error responses.
 </Check>
-
-## Use the REST API instead
-
-If you want pre-execution tool enforcement instead of SDK telemetry, route tool calls through:
-
-- [Non-MCP integration](/guides/non-mcp-integration)
-- [API reference](/api-reference/evaluate)
 
 ## Common mistakes
 
+- Logging telemetry without calling `evaluate` before tool dispatch
+- Treating `testConnection()` as proof of enforcement
+- Treating `REVIEW` as a generic deny instead of an approval pause
+- Dispatching on any non-error response instead of checking `decision.outcome === 'ALLOW'`
+- Missing `SECTOR8_CLIENT_ID`
 - Using the wrong host instead of `https://sdkapi.sector8.ai`
-- Forgetting `SECTOR8_CLIENT_ID`
-- assuming `testConnection()` proves logging works without sending a real event
 
 ## Next steps
 
-- [Onboarding](/guides/onboard)
 - [Quickstart](/guides/quickstart)
-- [API reference](/api-reference/overview)
+- [Non-MCP integration](/guides/non-mcp-integration)
+- [Guard MCP Server](/guides/mcp-server)
+- [Evaluate API](/api-reference/evaluate)
