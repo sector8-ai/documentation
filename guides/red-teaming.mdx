@@ -1,12 +1,12 @@
 ---
 title: Red teaming
-description: Offensive testing for what AI agents can do, not just what models can say.
+description: Test the live Sector8 contract: routed action, expected decision, evidence fields, and fail-closed behavior.
 ---
 
-Sector8 red teams the execution boundary itself: whether an agent can actually take the wrong action across tools, systems, and policy boundaries.
+Sector8 red teams the execution boundary itself: whether a routed agent action receives the expected `ALLOW`, `DENY`, or `REVIEW` decision before side effects start.
 
 <Info>
-Every AI security tool tests what your model says. Sector8 tests what your agents do.
+Every AI security tool tests what your model says. Sector8 tests what your agents can do on paths routed through the gate.
 </Info>
 
 ## The challenge
@@ -16,41 +16,55 @@ Every AI security tool tests what your model says. Sector8 tests what your agent
     A prompt-only assessment does not tell you what happens when an agent can read files, call tools, hit APIs, or operate across business systems.
   </Card>
   <Card title="Agents expand the blast radius" icon="shield-alert">
-    Once an agent has tool access, the real risk is data access, cross-scope reads, shell misuse, SSRF, and policy bypass.
+    Once an agent has tool access, the real risk is data access, cross-scope reads, shell misuse, SSRF, and policy bypass on ungoverned paths.
   </Card>
   <Card title="Most tools stop too early" icon="triangle-alert">
-    They test prompts and responses. They do not test the execution boundary where business risk actually happens.
+    They test prompts and responses. They do not test the evaluate-before-dispatch contract where business risk actually happens.
   </Card>
 </CardGroup>
 
 ## Sector8's approach
 
-Sector8 red teams real tool-call workflows, execution-boundary failures, and the policy conditions that determine whether an agent may act safely.
+Red team the real integration contract:
+
+1. Route a proposed action through Sector8
+2. Expect a specific decision (`ALLOW`, `DENY`, or `REVIEW`)
+3. Confirm evidence fields are present
+4. Confirm the runtime honors the decision and fails closed on unknown/error
 
 What that means in practice:
 
-- test real tool and MCP paths
-- test real authorization and ownership failures
-- test whether an agent can actually exfiltrate data, cross tenant boundaries, hit private infrastructure, or violate policy before execution
+- test real tool, SDK, REST evaluate, and MCP-connected paths
+- test authorization and ownership failures
+- test whether a routed agent can exfiltrate data, cross tenant boundaries, hit private infrastructure, or violate policy before execution
+- confirm unconnected paths are treated as out of coverage, not assumed protected
 
 <Tip>
-The goal is not to prove that a model can say something risky. The goal is to prove whether an agent can do something risky in production conditions.
+The goal is not only to prove that a model can say something risky. The goal is to prove whether a routed agent action is decided and honored correctly before execution.
 </Tip>
 
 ## How red teaming works
 
 <Steps>
   <Step title="Exercise real agent workflows">
-    Test tool use, file access, web access, shell actions, MCP servers, and cross-system agent behavior.
+    Test tool use, file access, web access, shell actions, MCP servers, and cross-system agent behavior on the paths you actually route through Sector8.
   </Step>
-  <Step title="Target the execution boundary">
+  <Step title="Target the evaluate boundary">
     Probe the decision point that determines whether the agent may act, not only what the model says.
   </Step>
-  <Step title="Measure exploitability">
-    Judge attacks by what they let the agent do in real business context: cross-tenant access, sensitive path reads, private network access, or policy bypass.
+  <Step title="Assert the contract">
+    For each case, record:
+
+    | Check | Pass condition |
+    | --- | --- |
+    | Routed action | Proposed action went through evaluate or the Sector8 connector |
+    | Expected decision | `ALLOW`, `DENY`, or `REVIEW` matched the case design |
+    | Evidence fields | `reason_code`, `decision_trace_id`, `evidence_hash`, and `policy_version_id` present as expected |
+    | Runtime honor | App dispatched only on `ALLOW`; blocked on `DENY`; paused on `REVIEW` |
+    | Fail-closed | Missing, unknown, error, or timeout did not execute |
   </Step>
   <Step title="Feed runtime protection">
-    Turn findings into deny reasons, guard policies, alert signatures, traces, and enforcement improvements.
+    Turn findings into deny reasons, review policies, alert signatures, traces, and enforcement improvements.
   </Step>
 </Steps>
 
@@ -58,11 +72,12 @@ The goal is not to prove that a model can say something risky. The goal is to pr
 
 | Area | What gets tested |
 | --- | --- |
-| Tool execution | whether the agent can invoke the wrong tool or invoke the right tool in the wrong context |
+| Tool execution | whether the agent can invoke the wrong tool or invoke the right tool in the wrong context on a routed path |
 | Ownership and scope | cross-tenant reads, BOLA, BFLA, and unauthorized object access |
 | Request risk | SSRF, private IP access, external-domain misuse, shell injection, obfuscated payloads |
 | Sensitive data movement | PII, PHI, and policy-protected data before execution |
 | MCP and agent workflows | whether real multi-step agent paths create unsafe action sequences |
+| Fail-closed behavior | whether evaluate unavailability or unknown decisions prevent dispatch |
 
 ## Why this is different
 
@@ -71,24 +86,25 @@ The goal is not to prove that a model can say something risky. The goal is to pr
     Test prompts and outputs, then report what the model said or might have said.
   </Card>
   <Card title="Sector8" icon="shield-check">
-    Tests whether the agent can actually take the wrong action at the tool boundary before execution.
+    Tests whether the routed execution boundary returns the expected decision and whether the runtime honors it before side effects start.
   </Card>
 </CardGroup>
 
 ## Stronger together
 
-Sector8 red teaming is not a separate reporting surface. It improves the live guard.
+Sector8 red teaming is not a separate reporting surface. It validates the live gate contract.
 
-- red teaming validates whether the Guard Module actually stops dangerous actions
-- runtime protection improves as findings become deny paths and policy rules
-- telemetry, traces, and framework mappings stay grounded in what was actually exploitable
+- red teaming validates whether dangerous routed actions are denied or sent to review before execution
+- runtime protection improves as findings become deny paths, review rules, and policy updates
+- telemetry and framework mappings stay grounded in what was actually exploitable on governed paths
 
 See related guides:
 
 - [Guardrails](/guides/guardrails)
+- [Evaluate](/api-reference/evaluate)
 - [Compliance overview](/guides/compliance)
 - [EU AI Act](/guides/eu-ai-act)
 
 <Check>
-Red teaming is complete when you can show not only that a prompt looked risky, but that the live execution boundary blocked the dangerous action with a deterministic reason code and trace.
+Red teaming is complete when you can show a routed action, the expected decision, the evidence fields, runtime honor behavior, and fail-closed handling -- not only that a prompt looked risky.
 </Check>
