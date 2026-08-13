@@ -1,126 +1,166 @@
 ---
 title: Quickstart
-description: Get Sector8 running in under 10 minutes
+description: Route your first proposed AI action through Sector8 and honor the returned decision.
+---
+
+# Quickstart
+
+This guide gets you to the first important proof point: your application asks Sector8 whether a proposed AI action may execute, then your runtime honors the returned decision.
+
+<Info>
+Start with the endpoint and credentials issued for your environment. Use staging for onboarding and production for live traffic.
+</Info>
+
+## Prerequisites
+
+- A Sector8 `x-api-key`
+- A Sector8 `x-client-id`
+- The base URL for your environment
+- A runtime path where you can block execution when Sector8 returns `DENY`
+
+```bash
+export SECTOR8_BASE_URL="https://stgsdkapi.sector8.ai"
+export SECTOR8_API_KEY="YOUR_API_KEY"
+export SECTOR8_CLIENT_ID="YOUR_CLIENT_ID"
+```
+
+For production traffic, use:
+
+```bash
+export SECTOR8_BASE_URL="https://sdkapi.sector8.ai"
+```
+
+---
+
+## Step 1: Check the gate
+
+Confirm the endpoint is healthy before routing actions through it.
+
+```bash
+curl -s "$SECTOR8_BASE_URL/api/health"
+```
+
+Expect a healthy response with active invariants and gate capabilities. If this check fails, do not route live actions until the endpoint is reachable.
+
+---
+
+## Step 2: Evaluate a proposed action
+
+Send the action you are about to execute to Sector8 first. This example uses a shell command because the allow-or-block behavior is direct.
+
+```bash
+curl -s "$SECTOR8_BASE_URL/api/v1/evaluate" \
+  -H "x-api-key: $SECTOR8_API_KEY" \
+  -H "x-client-id: $SECTOR8_CLIENT_ID" \
+  -H "content-type: application/json" \
+  -d '{
+    "tool_name": "bash",
+    "arguments": {
+      "command": "cat /etc/passwd"
+    },
+    "caller_id": "quickstart-agent",
+    "role": "developer",
+    "session_id": "quickstart-session",
+    "operation": "read"
+  }'
+```
+
+You should receive a decision artifact with fields like:
+
+```json
+{
+  "decision": "DENY",
+  "reason_code": "SENSITIVE_PATH_BLOCKED",
+  "evidence_hash": "bdbde1558fb883573b0f6e8630ccba1edaf6bed8cb035fa6a48912809149f287",
+  "has_forensic_payload": true,
+  "decision_trace_id": "32819155-d21a-49c8-9509-79338d980fa9",
+  "policy_version_id": "0dbca364d66447469637bafa2282e635124fcb99eecd6383038e3b652577ebc7"
+}
+```
+
+<Note>
+The exact `reason_code` and `policy_version_id` depend on your active policy and environment. The important contract is that the runtime receives a decision before the proposed action executes.
+</Note>
+
+---
+
+## Step 3: Honor the decision
+
+Your application must only dispatch the proposed action when Sector8 allows it.
+
+```python
+import os
+import httpx
+
+try:
+    response = httpx.post(
+        f"{os.environ['SECTOR8_BASE_URL']}/api/v1/evaluate",
+        headers={
+            "x-api-key": os.environ["SECTOR8_API_KEY"],
+            "x-client-id": os.environ["SECTOR8_CLIENT_ID"],
+        },
+        json={
+            "tool_name": "bash",
+            "arguments": {"command": "cat /etc/passwd"},
+            "caller_id": "quickstart-agent",
+            "role": "developer",
+            "session_id": "quickstart-session",
+            "operation": "read",
+        },
+        timeout=10,
+    )
+    response.raise_for_status()
+    decision = response.json()
+except Exception as exc:
+    print(f"Gate unavailable or invalid response; failing closed: {exc}")
+    raise SystemExit(1)
+
+if decision["decision"] == "ALLOW":
+    # Dispatch the tool call here.
+    pass
+elif decision["decision"] == "DENY":
+    print(f"Blocked before execution: {decision['reason_code']}")
+    print(f"Evidence hash: {decision['evidence_hash']}")
+else:
+    # REVIEW or any unknown state should pause execution until your approval flow resolves.
+    print(f"Paused for review: {decision}")
+```
+
+<Warning>
+Fail closed if the evaluate call fails, times out, or returns an unknown decision. Do not execute the proposed action by default.
+</Warning>
+
 ---
 
 ## Choose your integration path
 
-There are two ways to use the Sector8 Guard Module:
-
-| Path | Best for |
-|------|----------|
-| [Guard MCP Server](#path-a-guard-mcp-server) | Governing Claude Code tool calls -- no code changes |
-| [REST API / SDK](#path-b-rest-api--sdk) | Any LLM application that dispatches tool calls programmatically |
-
----
-
-## Path A -- Guard MCP Server
-
-Govern every Claude Code `bash`, `read_file`, `write_file`, and `web_fetch` call with one
-config change.
-
-**Step 1** -- Install the SDK:
-
-```bash
-pip install sector8-sdk
-```
-
-**Step 2** -- Run the installer:
-
-```bash
-sector8-guard install
-```
-
-This writes `.claude/settings.json` for the current project and preserves any existing
-settings keys.
-
-**Step 3** -- Set your credentials:
-
-```bash
-export SECTOR8_API_KEY=your-api-key
-export SECTOR8_CLIENT_ID=your-client-id
-```
-
-**Step 4** -- Verify the connection inside Claude Code:
-
-```text
-/mcp
-```
-
-You should see `sector8-guard` listed as a connected server. Test with:
-
-```text
-Use the sector8-guard MCP server to run bash: echo hello
-Use the sector8-guard MCP server to run bash: rm -rf /
-```
-
-Expected: `echo hello` -> `ALLOW`, `rm -rf /` -> `DENY`.
-
-See the [Guard MCP Server guide](/guides/mcp-server) for full configuration options.
-
----
-
-## Path B -- REST API / SDK
-
-Evaluate any tool call against the active policy before dispatching it.
-
-**Step 1** -- Install the SDK:
-
-```bash
-pip install sector8-sdk
-```
-
-**Step 2** -- Make your first evaluation call:
-
-```python
-import httpx
-
-response = httpx.post(
-    "https://sdkapi.sector8.ai/api/v1/evaluate",
-    headers={
-        "x-api-key": "YOUR_API_KEY",
-        "x-client-id": "YOUR_CLIENT_ID",
-    },
-    json={
-        "tool_name": "bash",
-        "arguments": {"command": "cat /etc/passwd"},
-        "caller_id": "engineer-42",
-        "role": "developer",
-        "session_id": "session-abc123",
-    },
-)
-
-result = response.json()
-if result["decision"] == "ALLOW":
-    # dispatch the tool call
-    pass
-else:
-    print(f"Blocked: {result['reason_code']}")
-    print(f"Evidence hash: {result['evidence_hash']}")
-```
-
-**Step 3** -- Check the health endpoint to confirm the Guard Module is live:
-
-```bash
-curl https://sdkapi.sector8.ai/api/health
-```
-
-Expected response includes `"invariants_active": 7` and all capabilities `true`.
-
-See the [API reference](/api-reference/evaluate) for the full request and response schema.
-
----
-
-## Next steps
-
 <CardGroup cols={3}>
-  <Card title="Guardrails" icon="shield" href="/guides/guardrails">
-    Understand what each admission check does and what gets blocked
+  <Card title="MCP runtime" icon="plug" href="/guides/mcp-server">
+    Govern Claude Code and MCP-connected tool calls with a runtime connector.
   </Card>
-  <Card title="Guard MCP Server" icon="plug" href="/guides/mcp-server">
-    Full MCP Server configuration -- fleet deployment, Windows setup, verification
+  <Card title="Python SDK" icon="python" href="/guides/python-sdk">
+    Add Sector8 to Python applications and services.
   </Card>
-  <Card title="Non-MCP integration" icon="code" href="/guides/non-mcp-integration">
-    Container pattern for Codex CLI and other non-MCP tool callers
+  <Card title="TypeScript SDK" icon="code" href="/guides/typescript-sdk">
+    Add Sector8 to Node.js and TypeScript applications.
   </Card>
 </CardGroup>
+
+If your runtime dispatches tools directly, use the [REST evaluate API](/api-reference/evaluate) or the [non-MCP integration guide](/guides/non-mcp-integration).
+
+---
+
+## What success looks like
+
+You are done when:
+
+- The health endpoint is reachable for your environment
+- Your runtime calls `/api/v1/evaluate` before dispatching the action
+- `ALLOW` actions may execute
+- `DENY` actions are blocked before execution
+- `REVIEW` or unknown decisions pause execution
+- Decision artifacts include `reason_code`, `decision_trace_id`, `evidence_hash`, and `policy_version_id`
+
+<Check>
+The key integration rule is simple: the agent proposes, Sector8 decides, and your runtime honors the decision before side effects start.
+</Check>
