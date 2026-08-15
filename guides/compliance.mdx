@@ -19,7 +19,7 @@ Traditional compliance tooling often operates after the fact. When your runtime 
 |-----------|-----------------------------------------|
 | [GDPR](/guides/gdpr) | PII detection, data minimisation, Art. 5/17-oriented audit evidence |
 | [HIPAA](/guides/hipaa) | PHI pattern checks, minimum-necessary style blocking, audit evidence |
-| [EU AI Act](/guides/eu-ai-act) | Risk controls, logging evidence, human oversight via `REVIEW` |
+| [EU AI Act](/guides/eu-ai-act) | Risk controls, logging evidence, human oversight on review-enabled guard paths |
 | PCI-DSS v4 | PAN/CVV detection, CDE path blocking support |
 | ISO 27001 | Access, logging, and change-control support at the execution boundary |
 | SOC 2 Type II | Logical access, monitoring, and change-evidence support |
@@ -48,7 +48,7 @@ Blocked and reviewed actions produce a decision artifact your operators can audi
 | `policy_version_id` | Policy version or runtime policy identifier applied to the decision |
 | `decision_trace_id` | Unique audit identifier linking this decision to the evaluation path |
 
-Honor `ALLOW`, `DENY`, and `REVIEW` before dispatch. Missing, unknown, or failed evaluate results should fail closed on the routed path.
+Honor `ALLOW` and `DENY` before dispatch. Missing, unknown, or failed evaluate results should fail closed on the routed path. On review-enabled guard paths, unresolved human review also fails closed.
 
 See [Guardrails](/guides/guardrails#forensic-telemetry), [Evaluate](/api-reference/evaluate), and the framework pages below.
 

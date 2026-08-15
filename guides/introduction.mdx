@@ -1,6 +1,6 @@
 ---
 title: Welcome to Sector8
-description: Pre-execution control for AI agents with ALLOW, DENY, or REVIEW decisions before proposed actions execute.
+description: Pre-execution control for AI agents. Every proposed action returns ALLOW or DENY before it executes.
 ---
 
 # Pre-execution control for AI agents
@@ -9,7 +9,7 @@ AI agents propose actions. Sector8 decides whether those actions can proceed bef
 
 Sector8 gives your business an independent control point between an agent and a real-world side effect: refund creation, customer data export, shell execution, inventory reorder, deployment, file access, API call, or model handoff.
 
-Every evaluated action returns an `ALLOW`, `DENY`, or `REVIEW` decision with an audit-grade evidence record: `reason_code`, `decision_trace_id`, `evidence_hash`, and `policy_version_id`.
+Every evaluated action returns an `ALLOW` or `DENY` decision with an audit-grade evidence record: `reason_code`, `decision_trace_id`, `evidence_hash`, and `policy_version_id`.
 
 <Info>
 **The agent does not approve itself.** Proposed actions pass through an independent decision gate. Enforcement holds where the runtime routes proposed actions through Sector8 and fails closed on gate unavailability.
@@ -30,7 +30,7 @@ Every evaluated action returns an `ALLOW`, `DENY`, or `REVIEW` decision with an 
     Each decision creates evidence with a reason code, trace ID, evidence hash, and policy version so reviewers can see what happened and why.
   </Card>
   <Card title="Business owners" icon="briefcase">
-    Business policy can control what agents are allowed to do, such as refund limits, inventory reorder limits, customer data export, and human review for high-risk actions.
+    Versioned policy sets can be bound per tenant to control what agents are allowed to do, such as refund limits, inventory reorder limits, customer data export, and human review for high-risk actions.
   </Card>
 </CardGroup>
 
@@ -57,7 +57,7 @@ Every evaluated action returns an `ALLOW`, `DENY`, or `REVIEW` decision with an 
 
 ## How it works
 
-The agent or model proposes an action. Sector8 evaluates the proposed action against baseline safety checks and active policy. Your runtime then honors the returned decision.
+The agent or model proposes an action. Sector8 evaluates the proposed action against baseline safety checks and the active policy set bound to your tenant. Your runtime then honors the returned decision.
 
 ```text
 Proposed AI action
@@ -70,11 +70,10 @@ Sector8 evaluate
     |   Fast path for obvious unsafe patterns
     |
     +-- Admission and policy
-        Baseline safety plus tenant and agent policy
+        Baseline safety plus tenant-bound and agent-scoped policy
     |
     +-- ALLOW  -> runtime may execute the action
     +-- DENY   -> runtime blocks the action
-    +-- REVIEW -> runtime pauses for human approval
 ```
 
 Unlike output filters, SIEM, or audit logs alone, Sector8 owns the execution decision before the side effect starts. When correctly integrated, there is no authorized path around the gate.
@@ -82,6 +81,12 @@ Unlike output filters, SIEM, or audit logs alone, Sector8 owns the execution dec
 <Note>
 Sector8 does not replace content security, SIEM, DLP, or customer governance. It owns the pre-execution decision for routed actions and emits evidence that downstream systems can use.
 </Note>
+
+## Policy model
+
+Sector8 policy is modeled as **versioned policy sets, bound per tenant**. A tenant binding selects the policy version used by evaluate for that environment. Agent-scoped policy can add narrower controls for a specific agent or action.
+
+Operators bind, suspend, resume, and review versioned policy sets through the control plane. The runtime gate enforces the active binding for routed actions and still applies baseline safety checks.
 
 ---
 
@@ -102,7 +107,7 @@ Every evaluate path should converge on the same fields:
 
 | Field | Meaning |
 |-------|---------|
-| `decision` | `ALLOW`, `DENY`, or `REVIEW` |
+| `decision` | `ALLOW` or `DENY` |
 | `reason_code` | The machine-readable reason for the decision |
 | `decision_trace_id` | Unique audit identifier for the evaluated action |
 | `evidence_hash` | Fingerprint of the decision evidence for correlation and integrity checks |

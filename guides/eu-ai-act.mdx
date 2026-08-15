@@ -15,7 +15,7 @@ Sector8 does not make your organization EU AI Act-compliant by itself. Use these
 | **Art. 10** | Data governance | ComplianceGate (AC-6) can scan routed tool calls for PII/PHI before dispatch when configured. |
 | **Art. 12** | Logging and record-keeping | Evaluated decisions produce evidence fields such as `evidence_hash`, `policy_version_id`, and `decision_trace_id`. |
 | **Art. 13** | Transparency | Policy version metadata can accumulate in telemetry so operators can see which policy applied. |
-| **Art. 14** | Human oversight | `REVIEW` decisions pause for human approval before execution; unanswered review items can auto-deny (fail-closed). |
+| **Art. 14** | Human oversight | Review-enabled guard paths can pause risky actions for human approval before execution; unanswered review items can auto-deny (fail-closed). |
 
 <Info>
 Art. 13 dashboard coverage may depend on policy-version metadata accumulating in telemetry over time. A fresh deployment can show it as not yet covered until enough rows exist -- this is expected, not automatic certification.
@@ -52,8 +52,8 @@ Use the credentials issued to your environment. Public examples use the producti
 
 - **Art. 9** support means the routed evaluate path can fail closed with invariant-backed risk controls -- not that a checkbox was ticked.
 - **Art. 12** support means evaluated decisions can produce evidence fields for audit -- when the action was routed through Sector8.
-- **Art. 14** support means `REVIEW` can pause risky actions for human approval before dispatch.
+- **Art. 14** support means review-enabled guard paths can pause risky actions for human approval before dispatch.
 
-Honor `ALLOW`, `DENY`, and `REVIEW` at the dispatch boundary. Missing, unknown, or failed evaluate results should fail closed on the routed path.
+Honor `ALLOW` and `DENY` at the dispatch boundary. Missing, unknown, or failed evaluate results should fail closed on the routed path. On review-enabled guard paths, unresolved reviews fail closed.
 
 See [Compliance overview](/guides/compliance), [Guardrails](/guides/guardrails), and [Evaluate](/api-reference/evaluate).

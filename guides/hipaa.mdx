@@ -14,7 +14,7 @@ Set `COMPLIANCE_LEVEL=HIPAA` to activate PHI pattern matching at admission check
 | HIPAA requirement | How Sector8 can support it |
 |------------------|---------------------------|
 | 164.312(a) - Access control | Tool allowlist and role checks on the routed admission path |
-| 164.312(b) - Audit controls | Decision evidence on evaluated calls, including `ALLOW`, `DENY`, and `REVIEW` |
+| 164.312(b) - Audit controls | Decision evidence on evaluated calls, including allow, deny, and review-enabled guard outcomes |
 | 164.312(c) - Integrity | Policy version identifiers and evidence fingerprints for decision correlation |
 | 164.312(e) - Transmission security | Blocks data transmission to unlisted external domains on governed paths |
 | Minimum necessary standard | ComplianceGate (AC-6) can block tool calls whose payload contains configured PHI patterns |
@@ -50,6 +50,6 @@ A PHI-related denial on the routed path produces a decision artifact such as:
 }
 ```
 
-Your runtime must honor the decision: block on `DENY`, pause on `REVIEW`, and fail closed on missing, unknown, or failed evaluate results.
+Your runtime must honor the decision: execute only on `ALLOW`, block on `DENY`, and fail closed on missing, unknown, or failed evaluate results.
 
 See [Compliance overview](/guides/compliance) and [Evaluate](/api-reference/evaluate).

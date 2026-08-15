@@ -30,18 +30,25 @@ Use the runtime credentials issued to your environment. Do not commit real keys 
 |------------|------------------|
 | `ALLOW` | May dispatch the proposed action |
 | `DENY` | Must block the proposed action |
-| `REVIEW` | Pause for human approval; do not dispatch yet |
 | Missing / unknown / error / timeout | Fail closed; do not dispatch |
+
+**Human review.** Borderline actions can be escalated to a review queue on the MCP guard path, where a reviewer approves or denies before dispatch. Unresolved reviews fail closed. `POST /api/v1/evaluate` is strictly synchronous and always returns `ALLOW` or `DENY`; an escalation returns `DENY` with `REVIEW_REQUIRED_FAIL_CLOSED`.
 
 Sector8 returns the verdict. Your application owns enforcing it at the dispatch boundary for actions routed through evaluate.
 
 Coverage applies to proposed actions your runtime routes through this API. Unconnected tools and bypassed dispatch paths are not automatically covered.
 
+## Policy model
+
+Sector8 uses **versioned policy sets, bound per tenant**. The active tenant binding determines which policy version evaluate applies for routed actions in that environment. Baseline safety checks remain active alongside tenant-bound policy.
+
+Agent-scoped policy can add narrower controls for a specific agent or action. Operators can bind, suspend, resume, and review policy state through the control plane; evaluate is the runtime path that returns the enforceable decision.
+
 Decision artifacts commonly include:
 
 | Field | Description |
 |-------|-------------|
-| `decision` | `ALLOW`, `DENY`, or `REVIEW` |
+| `decision` | `ALLOW` or `DENY` |
 | `reason_code` | Opaque machine-readable reason for support/display — branch on `decision` |
 | `evidence_hash` | Fingerprint of the decision evidence for correlation and integrity checks |
 | `has_forensic_payload` | Indicates whether additional forensic detail is attached |

@@ -1,6 +1,6 @@
 ---
 title: Guardrails
-description: How Sector8 evaluates proposed AI actions before execution and returns ALLOW, DENY, or REVIEW.
+description: How Sector8 evaluates proposed AI actions before execution, returns ALLOW or DENY, and supports review-enabled guard paths.
 ---
 
 ## How it works
@@ -26,7 +26,7 @@ Admission and policy
     +-- DENY   -> runtime blocks the action
     |             decision artifact recorded
     |
-    +-- REVIEW -> runtime pauses for human approval
+    +-- REVIEW -> review-enabled paths pause for human approval
     |
     +-- ALLOW  -> runtime may execute the action
                   decision artifact recorded
@@ -62,7 +62,7 @@ Content is trust-tagged before policy evaluation. Untrusted content cannot promo
 
 ### INV-6 - Explicit execution condition
 
-Execute only on an explicit `ALLOW` that your runtime honors. `DENY`, `REVIEW`, missing, or unknown decisions must not execute.
+Execute only on an explicit `ALLOW` that your runtime honors. `DENY`, missing, or unknown decisions must not execute. On review-enabled guard paths, unresolved `REVIEW` states must not execute.
 
 ### INV-7 - Decision evidence on deny
 
@@ -88,7 +88,7 @@ Check 5 (security threats) runs before check 6 (compliance) so that the reason c
 
 ## Human review queue
 
-Borderline requests — flagged as `REVIEW` — are routed to the review queue before execution. A human reviewer approves or denies via the API. If no action is taken within the TTL window, the request is auto-denied (fail-closed).
+On review-enabled guard paths, borderline requests flagged as `REVIEW` are routed to the review queue before execution. A human reviewer approves or denies via the API. If no action is taken within the TTL window, the request is auto-denied (fail-closed).
 
 ```
 Pre-filter or policy: REVIEW

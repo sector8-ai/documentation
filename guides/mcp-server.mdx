@@ -7,13 +7,13 @@ description: Govern Claude Code tool calls routed through the sector8-guard MCP 
 
 Sector8 governs Claude Code tool calls that are routed through the `sector8-guard` MCP server. Other MCP-compatible clients can use the same connector when they route tools the same way.
 
-When a tool call is routed through `sector8-guard`, Sector8 returns `ALLOW`, `DENY`, or `REVIEW` using the same admission and policy path as the REST evaluate API.
+When a tool call is routed through `sector8-guard`, Sector8 returns `ALLOW`, `DENY`, or `REVIEW` using the review-enabled guard path.
 
 <Info>
 Coverage applies to tool calls routed through the connected Sector8 MCP server. Unconnected tools, direct shell access, and other agent paths are not automatically covered.
 </Info>
 
-This is not a separate policy engine. The MCP server uses the same decision contract, reason codes, and evidence fields as the rest of Sector8.
+This is not a separate policy engine. The MCP server uses the same policy, reason-code, and evidence model as the rest of Sector8, with review handling enabled on the connector path.
 
 ## Installation
 
@@ -93,7 +93,7 @@ Sector8 evaluate
    +-- tool does not execute
 ```
 
-Honor the returned decision before any side effect starts. Policy, telemetry, and decision evidence are unified with the REST evaluate path.
+Honor the returned decision before any side effect starts. Policy, telemetry, and decision evidence are unified with Sector8's runtime evidence model.
 
 ## Runtime semantics
 

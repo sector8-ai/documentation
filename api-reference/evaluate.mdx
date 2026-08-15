@@ -1,6 +1,6 @@
 ---
 title: POST /api/v1/evaluate
-description: Evaluate a proposed tool or agent action before dispatch. Returns ALLOW, DENY, or REVIEW with an evidence record.
+description: Evaluate a proposed tool or agent action before dispatch. Returns ALLOW or DENY with an evidence record.
 ---
 
 Call `/api/v1/evaluate` before your runtime dispatches the proposed action. Honor the returned decision before any side effect starts.
@@ -80,20 +80,11 @@ Your runtime must not execute the proposed action.
 
 Branch on `decision`. The same proposed action may return different `reason_code` values depending on which policy layer blocks it (for example `PRE_FILTER_BLOCK` vs a more specific path or injection code).
 
-## Response - REVIEW
+## Human review
 
-```json
-{
-  "decision": "REVIEW",
-  "reason_code": "HUMAN_APPROVAL_REQUIRED",
-  "evidence_hash": "9f2c1a88e0b14d3a7c6e5f4a2b1c0d9e8f7a6b5c4d3e2f1a0b9c8d7e6f5a4b3",
-  "has_forensic_payload": false,
-  "decision_trace_id": "6a1b2c3d-4e5f-6789-a012-3456789abcde",
-  "policy_version_id": "0dbca364d66447469637bafa2282e635124fcb99eecd6383038e3b652577ebc7"
-}
-```
+`POST /api/v1/evaluate` is strictly synchronous and returns `ALLOW` or `DENY`. If a proposed action would require asynchronous review on this path, evaluate fails closed and returns `DENY` with a review reason such as `REVIEW_REQUIRED_FAIL_CLOSED`.
 
-Your runtime must pause for human approval. Do not execute until your approval flow resolves.
+Human approval is available on review-enabled guard paths, such as the MCP guard path. In those flows, the proposed action pauses until a reviewer approves or denies it before dispatch. Unresolved reviews fail closed.
 
 <Note>
 `reason_code` and `policy_version_id` are opaque support/evidence identifiers. Values depend on your active policy, environment, and evaluation path. Do not build exhaustive dispatch logic on them. The contract is that the runtime receives a `decision` before the proposed action executes.
@@ -103,7 +94,7 @@ Your runtime must pause for human approval. Do not execute until your approval f
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `decision` | string | `"ALLOW"`, `"DENY"`, or `"REVIEW"` |
+| `decision` | string | `"ALLOW"` or `"DENY"` |
 | `reason_code` | string\|null | Opaque machine-readable reason for support/display. Illustrative values: [reason codes](/api-reference/overview#reason-codes). Branch on `decision`, not on a specific code. |
 | `evidence_hash` | string | Fingerprint of the decision evidence for correlation and integrity checks |
 | `has_forensic_payload` | boolean | Indicates whether additional forensic detail is attached to the record |
@@ -118,7 +109,6 @@ Honor the decision before dispatch:
 |------------|------------------|
 | `ALLOW` | May execute the proposed action |
 | `DENY` | Must block the proposed action |
-| `REVIEW` | Must pause for approval; do not execute yet |
 | Missing / unknown | Fail closed; do not execute |
 
 <Warning>

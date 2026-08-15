@@ -160,8 +160,6 @@ if decision_value == "ALLOW":
 elif decision_value == "DENY":
     print(f"Blocked before execution: {decision.get('reason_code')}")
     print(f"Evidence hash: {decision.get('evidence_hash')}")
-elif decision_value == "REVIEW":
-    print(f"Paused for approval: {decision}")
 else:
     print(f"Unknown decision contract; failing closed: {decision}")
     raise SystemExit(1)
@@ -176,7 +174,7 @@ Set an evaluate client timeout of **at least 10 seconds** (10s is a safe default
 </Tip>
 
 <Note>
-REST field: `decision`. SDK field: often `outcome`. Both carry `ALLOW`, `DENY`, or `REVIEW`. Dispatch only on `ALLOW`.
+REST field: `decision`. SDK field: often `outcome`. Both carry `ALLOW` or `DENY` for synchronous evaluate. Dispatch only on `ALLOW`.
 </Note>
 
 ---
@@ -207,7 +205,6 @@ You are done when:
 - Your runtime calls `/api/v1/evaluate` before dispatching the action
 - `ALLOW` actions may execute
 - `DENY` actions are blocked before execution
-- `REVIEW` decisions pause for approval and do not execute
 - Unknown or missing decisions fail closed and do not execute
 - Decision artifacts include `reason_code`, `decision_trace_id`, `evidence_hash`, and `policy_version_id`
 

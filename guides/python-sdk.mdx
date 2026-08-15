@@ -16,7 +16,7 @@ Enforcement requires your runtime to call `evaluate` before dispatch and honor t
 - Python 3.10 or later
 - `SECTOR8_API_KEY`
 - `SECTOR8_CLIENT_ID`
-- A runtime path where you can block dispatch, pause for `REVIEW`, and fail closed on errors
+- A runtime path where you can block dispatch and fail closed on errors
 
 ## Install the SDK
 
@@ -65,8 +65,6 @@ async def main():
             print("Blocked before execution:", decision.reason_code)
             print("Evidence hash:", decision.evidence_hash)
             print("Trace ID:", decision.decision_trace_id)
-        elif decision.outcome == "REVIEW":
-            print("Paused for approval; do not dispatch:", decision)
         else:
             print("Unknown decision contract; failing closed:", decision)
             # Do not dispatch.
@@ -89,14 +87,13 @@ REST `/api/v1/evaluate` responses use the field `decision`. This SDK exposes the
 | --- | --- |
 | `ALLOW` (`decision.outcome == "ALLOW"`) | May dispatch |
 | `DENY` | Block; do not dispatch |
-| `REVIEW` | Pause / route to approval; do not dispatch |
 | Missing, unknown, error, or timeout | Fail closed; do not dispatch |
 
 <Warning>
 Never execute an action unless `decision.outcome == "ALLOW"`. Fail closed on evaluate errors. Fail-closed applies to tools routed through this SDK path; it does not stop bypassed or unconfigured tool paths.
 </Warning>
 
-See [Evaluate](/api-reference/evaluate) for the shared `ALLOW | DENY | REVIEW` contract and [Non-MCP integration](/guides/non-mcp-integration) for custom runtime wiring.
+See [Evaluate](/api-reference/evaluate) for the shared `ALLOW | DENY` contract and [Non-MCP integration](/guides/non-mcp-integration) for custom runtime wiring.
 
 ## Optional: send telemetry
 
@@ -156,17 +153,16 @@ curl https://sdkapi.sector8.ai/api/health
 ```
 
 2. Confirm an `evaluate` call returns a decision artifact
-3. Confirm your runtime dispatches only on `ALLOW`, pauses on `REVIEW`, and fails closed on unknown/error
+3. Confirm your runtime dispatches only on `ALLOW` and fails closed on unknown/error
 4. Optionally confirm telemetry appears in Sector8 if you send it
 
 <Check>
-You are done when your Python runtime evaluates before dispatch, blocks on `DENY`, pauses on `REVIEW`, and fails closed on missing/unknown/error responses.
+You are done when your Python runtime evaluates before dispatch, blocks on `DENY`, and fails closed on missing/unknown/error responses.
 </Check>
 
 ## Common mistakes
 
 - Logging telemetry without calling `evaluate` before tool dispatch
-- Treating `REVIEW` as a generic deny instead of an approval pause
 - Dispatching on any non-error response instead of checking `decision.outcome == "ALLOW"`
 - Missing `SECTOR8_CLIENT_ID`
 - Overriding `base_url` to an older host by accident

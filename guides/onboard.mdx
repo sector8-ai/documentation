@@ -78,8 +78,9 @@ For Claude Code or MCP-connected clients, also see the [Guard MCP Server](/guide
     | --- | --- |
     | `ALLOW` | May dispatch |
     | `DENY` | Block; do not dispatch |
-    | `REVIEW` | Pause / route to approval; do not dispatch |
     | Missing, unknown, error, or timeout | Fail closed; do not dispatch |
+
+    Review-enabled guard paths, such as the MCP guard path, can pause borderline actions for human approval. Unresolved reviews fail closed.
 
     Sector8 returns the verdict. Your application owns enforcing it at the dispatch boundary.
   </Step>
@@ -90,7 +91,7 @@ For Claude Code or MCP-connected clients, also see the [Guard MCP Server](/guide
     - health responds for your environment
     - the `ALLOW` path returned a decision artifact and your app dispatched only then
     - the `DENY` path returned a decision artifact and your app blocked execution
-    - `REVIEW` / unknown / error paths do not execute
+    - unknown / error paths do not execute
     - both decision artifacts include `reason_code`, `decision_trace_id`, `evidence_hash`, and `policy_version_id`
   </Step>
 </Steps>
@@ -108,7 +109,6 @@ Use `https://sdkapi.sector8.ai` for public production examples. Do not paste rea
 - Treating connection health, telemetry, or a single `ALLOW` as full onboarding proof
 - Skipping a known unsafe or policy-blocked `DENY` proof
 - Logging an LLM event without calling `evaluate` before tool dispatch
-- Treating `REVIEW` as a generic deny instead of an approval pause
 - Setting an evaluate timeout under ~10s (fail-closed then blocks your own safe `ALLOW` traffic)
 - Branching dispatch logic on a specific `reason_code` instead of on `decision`
 - Hardcoding `SECTOR8_API_KEY` or `SECTOR8_CLIENT_ID` in source
