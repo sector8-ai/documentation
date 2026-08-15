@@ -1,6 +1,6 @@
 ---
 title: Non-MCP integration
-description: Wire custom or containerized tool runtimes through POST /api/v1/evaluate and honor ALLOW, DENY, or REVIEW before dispatch.
+description: Wire custom or containerized tool runtimes through POST /api/v1/evaluate and honor ALLOW or DENY before dispatch.
 ---
 
 Non-MCP tool callers -- including containerized Codex CLI deployments -- use
@@ -102,8 +102,6 @@ if decision_value == "ALLOW":
     pass
 elif decision_value == "DENY":
     print(f"Blocked before execution: {decision.get('reason_code')}")
-elif decision_value == "REVIEW":
-    print(f"Paused for approval; do not dispatch: {decision}")
 else:
     print(f"Unknown decision contract; failing closed: {decision}")
     raise SystemExit(1)
@@ -113,7 +111,6 @@ else:
 | --- | --- |
 | `ALLOW` | Dispatch only after this branch |
 | `DENY` | Block; do not dispatch |
-| `REVIEW` | Pause / route to approval; do not dispatch |
 | Missing, unknown, or evaluate error | Fail closed; do not dispatch |
 
 Optional adapter helper for the same routed path:
@@ -140,7 +137,7 @@ except ToolBlockedError as e:
     print(f"Trace ID: {e.decision_trace_id}")
 ```
 
-If you use the adapter, still ensure `REVIEW`, missing, unknown, and evaluate failures do not dispatch. Sector8 returns the verdict; your application owns enforcement at the dispatch boundary.
+If you use the adapter, still ensure missing, unknown, and evaluate failures do not dispatch. Sector8 returns the verdict; your application owns enforcement at the dispatch boundary.
 
 <Warning>
 Fail closed if evaluate fails, times out, or returns an unknown decision. Do not execute the proposed action by default. Fail-closed applies to tools routed through this integration; it does not stop actions on bypassed or unconfigured tool paths.
@@ -152,7 +149,6 @@ Fail closed if evaluate fails, times out, or returns an unknown decision. Do not
 | --- | --- |
 | `ALLOW` | Your runtime may dispatch the proposed tool call |
 | `DENY` | Your runtime must block the proposed tool call |
-| `REVIEW` | Pause for human approval; do not execute yet |
 | Missing / unknown | Fail closed; do not execute |
 
 ## Success state
@@ -163,7 +159,6 @@ When correctly wired:
 - Your application honors the decision at the dispatch boundary
 - `ALLOW` actions may execute
 - `DENY` actions are blocked before execution
-- `REVIEW` decisions pause for approval and do not execute
 - Unknown, missing, or failed evaluate results fail closed and do not execute
 - Decision artifacts include `reason_code`, `decision_trace_id`, `evidence_hash`, and `policy_version_id`
 
@@ -171,7 +166,7 @@ When correctly wired:
 
 ```json
 {
-  "decision": "ALLOW|DENY|REVIEW",
+  "decision": "ALLOW|DENY",
   "reason_code": "ALLOW_PASS",
   "evidence_hash": "",
   "has_forensic_payload": false,
@@ -195,21 +190,6 @@ Exact `reason_code` and `policy_version_id` values depend on your active policy 
 }
 ```
 
-## Example -- review required
-
-```json
-{
-  "decision": "REVIEW",
-  "reason_code": "HUMAN_APPROVAL_REQUIRED",
-  "evidence_hash": "9f2c1a88e0b14d3a7c6e5f4a2b1c0d9e8f7a6b5c4d3e2f1a0b9c8d7e6f5a4b3",
-  "has_forensic_payload": false,
-  "decision_trace_id": "6a1b2c3d-4e5f-6789-a012-3456789abcde",
-  "policy_version_id": "0dbca364d66447469637bafa2282e635124fcb99eecd6383038e3b652577ebc7"
-}
-```
-
-Do not execute until your approval flow resolves.
-
 ## Example -- allowed call
 
 ```json
@@ -228,7 +208,6 @@ Do not execute until your approval flow resolves.
 - **`session_id` is required for rate limiting.** A missing or static `session_id` will cause all requests to share a rate limit bucket.
 - **`owned_objects` must list what the caller actually owns.** BOLA checks compare `object_id` against this list -- an empty list means every object-level request is denied.
 - **Do not cache `ALLOW` decisions.** Evaluate every call independently. A cached `ALLOW` is not a security property.
-- **Do not dispatch on `REVIEW`.** Pause for approval; treat it as non-executable until resolved.
 - **Do not treat adapter install as full coverage.** Only tool calls that go through evaluate or the adapter are governed.
 
 ## Honest scope

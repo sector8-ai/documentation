@@ -16,7 +16,7 @@ Violation on a routed path is a critical defect. Coverage still depends on the i
 | INV-3 | Per-Step Enforcement | Evaluation runs per tool call, per agent step, after planning and before execution. |
 | INV-4 | Untrusted Executor | The LLM produces candidates. The control plane decides outcomes. |
 | INV-5 | Spotlighting Before Policy | Content is trust-tagged before evaluation. Untrusted content cannot self-promote. |
-| INV-6 | Explicit Execution Condition | Execute only on an explicit `ALLOW` that your runtime honors. `DENY`, `REVIEW`, missing, or unknown decisions must not execute. |
+| INV-6 | Explicit Execution Condition | Execute only on an explicit `ALLOW` that your runtime honors. `DENY`, missing, or unknown decisions must not execute. On review-enabled guard paths, unresolved `REVIEW` states must not execute. |
 | INV-7 | Trust Inversion Forbidden | No component consuming untrusted outputs may be the final authority to permit execution. |
 
 ## Runtime semantics
@@ -27,7 +27,7 @@ Honor the decision before dispatch on the routed path:
 | --- | --- |
 | `ALLOW` | May execute the proposed action |
 | `DENY` | Must block the proposed action |
-| `REVIEW` | Must pause for approval; do not execute yet |
+| `REVIEW` | Review-enabled guard paths must pause for approval; do not execute yet |
 | Missing / unknown / error | Fail closed; do not execute |
 
 Fail-closed applies when the action is routed through Sector8 and evaluation is unavailable or invalid. It does not stop actions on bypassed or unconfigured tool paths.

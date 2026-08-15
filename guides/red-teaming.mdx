@@ -3,7 +3,7 @@ title: Red teaming
 description: "Test the live Sector8 contract: routed action, expected decision, evidence fields, and fail-closed behavior."
 ---
 
-Sector8 red teams the execution boundary itself: whether a routed agent action receives the expected `ALLOW`, `DENY`, or `REVIEW` decision before side effects start.
+Sector8 red teams the execution boundary itself: whether a routed agent action receives the expected `ALLOW` or `DENY` decision before side effects start, plus review behavior on review-enabled guard paths.
 
 <Info>
 Every AI security tool tests what your model says. Sector8 tests what your agents can do on paths routed through the gate.
@@ -28,7 +28,7 @@ Every AI security tool tests what your model says. Sector8 tests what your agent
 Red team the real integration contract:
 
 1. Route a proposed action through Sector8
-2. Expect a specific decision (`ALLOW`, `DENY`, or `REVIEW`)
+2. Expect a specific decision (`ALLOW` or `DENY`) or a review pause on review-enabled guard paths
 3. Confirm evidence fields are present
 4. Confirm the runtime honors the decision and fails closed on unknown/error
 
@@ -58,9 +58,9 @@ The goal is not only to prove that a model can say something risky. The goal is 
     | Check | Pass condition |
     | --- | --- |
     | Routed action | Proposed action went through evaluate or the Sector8 connector |
-    | Expected decision | `ALLOW`, `DENY`, or `REVIEW` matched the case design |
+    | Expected decision | `ALLOW` or `DENY` matched the case design; review-enabled paths paused when expected |
     | Evidence fields | `reason_code`, `decision_trace_id`, `evidence_hash`, and `policy_version_id` present as expected |
-    | Runtime honor | App dispatched only on `ALLOW`; blocked on `DENY`; paused on `REVIEW` |
+    | Runtime honor | App dispatched only on `ALLOW`; blocked on `DENY`; review-enabled paths paused when expected |
     | Fail-closed | Missing, unknown, error, or timeout did not execute |
   </Step>
   <Step title="Feed runtime protection">

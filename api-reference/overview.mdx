@@ -30,8 +30,9 @@ Use the runtime credentials issued to your environment. Do not commit real keys 
 |------------|------------------|
 | `ALLOW` | May dispatch the proposed action |
 | `DENY` | Must block the proposed action |
-| `REVIEW` | Pause for human approval; do not dispatch yet |
 | Missing / unknown / error / timeout | Fail closed; do not dispatch |
+
+**Human review.** Borderline actions can be escalated to a review queue on the MCP guard path, where a reviewer approves or denies before dispatch. Unresolved reviews fail closed. `POST /api/v1/evaluate` is strictly synchronous and always returns `ALLOW` or `DENY`; an escalation returns `DENY` with `REVIEW_REQUIRED_FAIL_CLOSED`.
 
 Sector8 returns the verdict. Your application owns enforcing it at the dispatch boundary for actions routed through evaluate.
 
@@ -47,7 +48,7 @@ Decision artifacts commonly include:
 
 | Field | Description |
 |-------|-------------|
-| `decision` | `ALLOW`, `DENY`, or `REVIEW` |
+| `decision` | `ALLOW` or `DENY` |
 | `reason_code` | Opaque machine-readable reason for support/display — branch on `decision` |
 | `evidence_hash` | Fingerprint of the decision evidence for correlation and integrity checks |
 | `has_forensic_payload` | Indicates whether additional forensic detail is attached |

@@ -1,6 +1,6 @@
 ---
 title: Welcome to Sector8
-description: Pre-execution control for AI agents with ALLOW, DENY, or REVIEW decisions before proposed actions execute.
+description: Pre-execution control for AI agents. Every proposed action returns ALLOW or DENY before it executes.
 ---
 
 # Pre-execution control for AI agents
@@ -9,7 +9,7 @@ AI agents propose actions. Sector8 decides whether those actions can proceed bef
 
 Sector8 gives your business an independent control point between an agent and a real-world side effect: refund creation, customer data export, shell execution, inventory reorder, deployment, file access, API call, or model handoff.
 
-Every evaluated action returns an `ALLOW`, `DENY`, or `REVIEW` decision with an audit-grade evidence record: `reason_code`, `decision_trace_id`, `evidence_hash`, and `policy_version_id`.
+Every evaluated action returns an `ALLOW` or `DENY` decision with an audit-grade evidence record: `reason_code`, `decision_trace_id`, `evidence_hash`, and `policy_version_id`.
 
 <Info>
 **The agent does not approve itself.** Proposed actions pass through an independent decision gate. Enforcement holds where the runtime routes proposed actions through Sector8 and fails closed on gate unavailability.
@@ -74,7 +74,6 @@ Sector8 evaluate
     |
     +-- ALLOW  -> runtime may execute the action
     +-- DENY   -> runtime blocks the action
-    +-- REVIEW -> runtime pauses for human approval
 ```
 
 Unlike output filters, SIEM, or audit logs alone, Sector8 owns the execution decision before the side effect starts. When correctly integrated, there is no authorized path around the gate.
@@ -108,7 +107,7 @@ Every evaluate path should converge on the same fields:
 
 | Field | Meaning |
 |-------|---------|
-| `decision` | `ALLOW`, `DENY`, or `REVIEW` |
+| `decision` | `ALLOW` or `DENY` |
 | `reason_code` | The machine-readable reason for the decision |
 | `decision_trace_id` | Unique audit identifier for the evaluated action |
 | `evidence_hash` | Fingerprint of the decision evidence for correlation and integrity checks |
