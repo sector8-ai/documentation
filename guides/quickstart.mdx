@@ -54,7 +54,7 @@ curl -s "$SECTOR8_BASE_URL/api/v1/evaluate" \
   -d '{
     "tool_name": "bash",
     "arguments": {
-      "command": "cat /etc/passwd"
+      "command": "cat .env"
     },
     "caller_id": "quickstart-agent",
     "role": "developer",
@@ -68,11 +68,11 @@ You should receive a decision artifact like:
 ```json
 {
   "decision": "DENY",
-  "reason_code": "PRE_FILTER_BLOCK",
+  "reason_code": "SENSITIVE_PATH_BLOCKED",
   "evidence_hash": "bdbde1558fb883573b0f6e8630ccba1edaf6bed8cb035fa6a48912809149f287",
   "has_forensic_payload": true,
   "decision_trace_id": "32819155-d21a-49c8-9509-79338d980fa9",
-  "policy_version_id": "v7.0-phase2"
+  "policy_version_id": "5d61927dcac73a97e9e3c7ee0dbca364d66447469637bafa2282e635124fcb99"
 }
 ```
 
@@ -137,7 +137,7 @@ try:
         },
         json={
             "tool_name": "bash",
-            "arguments": {"command": "cat /etc/passwd"},
+            "arguments": {"command": "cat .env"},
             "caller_id": "quickstart-agent",
             "role": "developer",
             "session_id": "quickstart-session",

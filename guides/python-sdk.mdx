@@ -51,7 +51,7 @@ async def main():
     try:
         decision = await client.evaluate(
             "bash",
-            {"command": "cat /etc/passwd"},
+            {"command": "cat .env"},
             caller_id="python-sdk-agent",
             role="developer",
             session_id="python-sdk-session",
