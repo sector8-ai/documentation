@@ -49,7 +49,7 @@ async function main() {
   try {
     const decision = await client.evaluate({
       tool_name: 'bash',
-      arguments: { command: 'cat /etc/passwd' },
+      arguments: { command: 'cat .env' },
       caller_id: 'typescript-sdk-agent',
       role: 'developer',
       session_id: 'typescript-sdk-session',
