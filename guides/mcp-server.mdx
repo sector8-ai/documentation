@@ -7,13 +7,13 @@ description: Govern Claude Code tool calls routed through the sector8-guard MCP 
 
 Sector8 governs Claude Code tool calls that are routed through the `sector8-guard` MCP server. Other MCP-compatible clients can use the same connector when they route tools the same way.
 
-When a tool call is routed through `sector8-guard`, Sector8 returns `ALLOW`, `DENY`, or `REVIEW` using the review-enabled guard path.
+When a tool call is routed through `sector8-guard`, the caller-visible decision is `ALLOW` or `DENY`. On this connector path a borderline action can be held for a human before that decision is returned; if nobody answers, it is denied.
 
 <Info>
 Coverage applies to tool calls routed through the connected Sector8 MCP server. Unconnected tools, direct shell access, and other agent paths are not automatically covered.
 </Info>
 
-This is not a separate policy engine. The MCP server uses the same policy, reason-code, and evidence model as the rest of Sector8, with review handling enabled on the connector path.
+This is not a separate policy engine. The MCP server uses the same policy, reason-code, and evidence model as REST evaluate. The difference is that the connector can wait on a human before returning `ALLOW` or `DENY`. `POST /api/v1/evaluate` does not wait; it fails closed to `DENY`.
 
 ## Installation
 
@@ -83,15 +83,16 @@ Sector8 evaluate
   |- semantic and segmented-input checks
   |- request-risk checks
         |
-   +----+----+----+
-   |         |    |
-   v         v    v
- DENY     REVIEW  ALLOW
-   |         |      |
-   |         |      +-- tool may execute
-   |         +-- pause for human approval
+   +----+----+
+   |         |
+   v         v
+ DENY      ALLOW
+   |         |
+   |         +-- tool may execute
    +-- tool does not execute
 ```
+
+On this connector path, a borderline action can be held for a human before `ALLOW` or `DENY` is returned. If nobody answers, the connector denies. That hold is connector behaviour, not a third public `decision` value. REST evaluate does not wait.
 
 Honor the returned decision before any side effect starts. Policy, telemetry, and decision evidence are unified with Sector8's runtime evidence model.
 
@@ -101,8 +102,9 @@ Honor the returned decision before any side effect starts. Policy, telemetry, an
 | --- | --- |
 | `ALLOW` | The MCP connector may execute the proposed tool call |
 | `DENY` | The MCP connector must block the proposed tool call |
-| `REVIEW` | Pause for human approval; do not execute yet |
 | Missing / unknown | Fail closed on the connector path; do not execute |
+
+Do not execute while a human hold is unresolved. TTL expiry is a deny.
 
 ### Fail-closed on evaluation failure
 
@@ -182,22 +184,6 @@ This is designed to stop common SSRF paths, including cloud metadata access, on 
   "policy_version_id": "0dbca364d66447469637bafa2282e635124fcb99eecd6383038e3b652577ebc7"
 }
 ```
-
-## Example - review required
-
-```json
-{
-  "decision": "REVIEW",
-  "tool_name": "bash",
-  "reason_code": "HUMAN_APPROVAL_REQUIRED",
-  "evidence_hash": "9f2c1a88e0b14d3a7c6e5f4a2b1c0d9e8f7a6b5c4d3e2f1a0b9c8d7e6f5a4b3",
-  "has_forensic_payload": false,
-  "decision_trace_id": "6a1b2c3d-4e5f-6789-a012-3456789abcde",
-  "policy_version_id": "0dbca364d66447469637bafa2282e635124fcb99eecd6383038e3b652577ebc7"
-}
-```
-
-Do not execute until your approval flow resolves.
 
 ## Example - allowed call
 

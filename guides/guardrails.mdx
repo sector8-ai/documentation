@@ -1,6 +1,6 @@
 ---
 title: Guardrails
-description: How Sector8 evaluates proposed AI actions before execution, returns ALLOW or DENY, and supports review-enabled guard paths.
+description: How Sector8 evaluates proposed AI actions before execution and returns ALLOW or DENY.
 ---
 
 ## How it works
@@ -26,11 +26,11 @@ Admission and policy
     +-- DENY   -> runtime blocks the action
     |             decision artifact recorded
     |
-    +-- REVIEW -> review-enabled paths pause for human approval
-    |
     +-- ALLOW  -> runtime may execute the action
                   decision artifact recorded
 ```
+
+On the MCP connector path only, a borderline action can be held for a human before that `ALLOW` or `DENY` is returned. If nobody answers, it is denied. `POST /api/v1/evaluate` does not wait; it fails closed to `DENY`.
 
 <Info>
 Enforcement holds where the runtime routes proposed actions through Sector8 and fails closed on gate unavailability or unknown decisions. See the [Quickstart](/guides/quickstart) and [Evaluate API](/api-reference/evaluate).
@@ -62,7 +62,7 @@ Content is trust-tagged before policy evaluation. Untrusted content cannot promo
 
 ### INV-6 - Explicit execution condition
 
-Execute only on an explicit `ALLOW` that your runtime honors. `DENY`, missing, or unknown decisions must not execute. On review-enabled guard paths, unresolved `REVIEW` states must not execute.
+Execute only on an explicit `ALLOW` that your runtime honors. `DENY`, missing, or unknown decisions must not execute. On the MCP connector path, an unresolved human hold must not execute; TTL expiry is a deny.
 
 ### INV-7 - Decision evidence on deny
 
@@ -86,32 +86,34 @@ Each tool call passes sequential checks. Failure at any check returns `DENY` imm
 Check 5 (security threats) runs before check 6 (compliance) so that the reason code identifies the primary threat. A `web_fetch` to a private IP with PII in the body returns `PRIVATE_IP_BLOCKED`, not a compliance code.
 </Info>
 
-## Human review queue
+## Human hold on the MCP connector
 
-On review-enabled guard paths, borderline requests flagged as `REVIEW` are routed to the review queue before execution. A human reviewer approves or denies via the API. If no action is taken within the TTL window, the request is auto-denied (fail-closed).
+On the MCP connector path, a borderline action can be held for a human before the connector returns `ALLOW` or `DENY`. A reviewer approves or denies via the API. If no action is taken within the TTL window, the request is denied (fail-closed).
+
+`POST /api/v1/evaluate` is strictly synchronous. If that path would need to wait, it returns `DENY` with `REVIEW_REQUIRED_FAIL_CLOSED`.
 
 ```
-Pre-filter or policy: REVIEW
+MCP connector hold
     |
     v
-Review queue (TTL window)
+Human queue (TTL window)
     |
-    +-- approved -> tool may execute
+    +-- approved -> connector may return ALLOW and execute
     +-- denied   -> DENY, reviewer recorded with the decision
-    +-- TTL expires -> DENY, reviewed_by="ttl_expired"
+    +-- TTL expires -> DENY
 ```
 
-Every approval decision is a one-time authorization. A second identical request re-enters the queue — approval does not persist as a session-level exemption.
+Every approval is a one-time authorization. A second identical request is evaluated again — approval does not persist as a session-level exemption.
 
 ## Pre-filter
 
-Before the full Admission Controller runs, a fast-path classifier routes requests:
+Before the full Admission Controller runs, a fast-path classifier routes requests. These labels are internal routing, not public `decision` values:
 
-| Decision | Meaning | What happens |
+| Internal label | Meaning | What happens |
 | --- | --- | --- |
 | `BLOCK` | High-confidence malicious | deny immediately, AC skipped |
 | `PASS` | High-confidence benign | continue on the fast path |
-| `REVIEW` | Ambiguous | full AC evaluation or human review routing |
+| `REVIEW` | Ambiguous | continue to full AC evaluation, or hold on the MCP connector |
 
 The pre-filter also decodes and reclassifies obfuscated inputs. Covered forms include
 zero-width insertion, character arrays, hex escapes, base64 blobs, and rot13.
@@ -136,7 +138,7 @@ patterns.
 
 ## Forensic telemetry
 
-Blocked and reviewed actions produce a decision artifact your operators can audit and correlate.
+Blocked actions produce a decision artifact your operators can audit and correlate.
 
 ```json
 {

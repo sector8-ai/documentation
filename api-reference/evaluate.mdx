@@ -80,11 +80,11 @@ Your runtime must not execute the proposed action.
 
 Branch on `decision`. The same proposed action may return different `reason_code` values depending on which policy layer blocks it (for example `PRE_FILTER_BLOCK` vs a more specific path or injection code).
 
-## Human review
+## Human hold
 
-`POST /api/v1/evaluate` is strictly synchronous and returns `ALLOW` or `DENY`. If a proposed action would require asynchronous review on this path, evaluate fails closed and returns `DENY` with a review reason such as `REVIEW_REQUIRED_FAIL_CLOSED`.
+`POST /api/v1/evaluate` is strictly synchronous and returns `ALLOW` or `DENY`. If a proposed action would require waiting for a human on this path, evaluate fails closed and returns `DENY` with `REVIEW_REQUIRED_FAIL_CLOSED`.
 
-Human approval is available on review-enabled guard paths, such as the MCP guard path. In those flows, the proposed action pauses until a reviewer approves or denies it before dispatch. Unresolved reviews fail closed.
+A human hold is available on the MCP connector path. The connector pauses until a reviewer approves or denies, then returns `ALLOW` or `DENY`. Unresolved holds fail closed.
 
 <Note>
 `reason_code` and `policy_version_id` are opaque support/evidence identifiers. Values depend on your active policy, environment, and evaluation path. Do not build exhaustive dispatch logic on them. The contract is that the runtime receives a `decision` before the proposed action executes.

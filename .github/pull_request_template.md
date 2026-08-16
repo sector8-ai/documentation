@@ -7,7 +7,7 @@ Use when changing customer-facing content under `guides/` or `api-reference/`.
 For tiny typo/formatting-only fixes with no claim or contract changes, mark **N/A** and skip the rest.
 
 - [ ] N/A — typo/formatting only; no claim or contract changes
-- [ ] `decision` is `ALLOW | DENY | REVIEW` (do not teach ALLOW/DENY only)
+- [ ] Public `decision` is `ALLOW | DENY`. MCP hold-for-human is connector behaviour, not a third evaluate outcome.
 - [ ] Claims apply to **routed** proposed actions only (no automatic coverage of unconnected paths)
 - [ ] App/runtime must honor the verdict at dispatch
 - [ ] Missing / unknown / error / timeout → fail closed; do not dispatch

@@ -32,7 +32,7 @@ Use the runtime credentials issued to your environment. Do not commit real keys 
 | `DENY` | Must block the proposed action |
 | Missing / unknown / error / timeout | Fail closed; do not dispatch |
 
-**Human review.** Borderline actions can be escalated to a review queue on the MCP guard path, where a reviewer approves or denies before dispatch. Unresolved reviews fail closed. `POST /api/v1/evaluate` is strictly synchronous and always returns `ALLOW` or `DENY`; an escalation returns `DENY` with `REVIEW_REQUIRED_FAIL_CLOSED`.
+**Human hold.** On the MCP connector path, a borderline action can be held for a human before dispatch. Unresolved holds fail closed. `POST /api/v1/evaluate` is strictly synchronous and always returns `ALLOW` or `DENY`; if that path would need to wait, it returns `DENY` with `REVIEW_REQUIRED_FAIL_CLOSED`.
 
 Sector8 returns the verdict. Your application owns enforcing it at the dispatch boundary for actions routed through evaluate.
 
@@ -77,7 +77,7 @@ Illustrative values you may see:
 |------|---------|
 | `ALLOW_PASS` | Proposed action passed policy and admission checks |
 | `PRE_FILTER_BLOCK` | Blocked by an early pre-filter (common for known-unsafe shell/path patterns) |
-| `HUMAN_APPROVAL_REQUIRED` | Decision requires human approval before dispatch |
+| `REVIEW_REQUIRED_FAIL_CLOSED` | REST evaluate would have needed to wait; it denied instead |
 | `MCP_SHELL_INJECTION_BLOCKED` | Shell injection detected in command |
 | `SENSITIVE_PATH_BLOCKED` | Access to a sensitive file path |
 | `MCP_OBFUSCATED_*_BLOCKED` | Obfuscated payload decoded and blocked (e.g. `MCP_OBFUSCATED_SHELL_INJECTION_BLOCKED`) |
