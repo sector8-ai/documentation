@@ -35,7 +35,8 @@
             "pages": [
               "guides/introduction",
               "guides/quickstart",
-              "guides/onboard"
+              "guides/onboard",
+              "guides/observe-then-enforce"
             ]
           },
           {

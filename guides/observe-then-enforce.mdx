@@ -1,0 +1,136 @@
+---
+title: Observe then enforce
+description: Pilot path from evaluation-only observation to fail-closed enforcement, using verified SDK helpers.
+---
+
+# Observe then enforce
+
+Pilots usually start by **observing** evaluate decisions without changing dispatch, then move to **enforce** where only `ALLOW` may run. This guide documents both modes against verified SDK helpers.
+
+<Info>
+Existing customer protections outside Sector8 remain in force during observe. Sector8 does not claim a one-click “enforcement off” switch or an automated gap-report SKU.
+</Info>
+
+## Modes
+
+| Mode | Behavior | Proves |
+| --- | --- | --- |
+| **Evaluation-only** | Call evaluate, record the artifact, **never** dispatch | Evaluation + artifact recording |
+| **Observe (live)** | Call evaluate; **continue the normal business workflow** on DENY, timeout, or evaluate failure | Observation does not break the partner path |
+| **Enforce** | Dispatch **only** on a valid `ALLOW`; zero dispatch otherwise | Prevention |
+
+An evaluation-only example that never dispatches does **not** prove a live observe integration. Readiness needs a verified observation test where the business path still completes when evaluate returns DENY, times out, or fails.
+
+## Verified helpers
+
+These helpers are covered by unit proofs in the SDKs:
+
+| SDK | Helpers | Proofs |
+| --- | --- | --- |
+| TypeScript | `shouldDispatch`, `honorEnforceDecision`, `honorObserveDecision` | `tests/pilot.test.ts` |
+| Python | `should_dispatch`, `honor_enforce_decision`, `honor_observe_decision` | `tests/test_pilot.py` |
+
+Examples:
+
+- TypeScript: `examples/pilot-evaluation-only.ts`, `examples/pilot-enforce-stub.ts`, `examples/PILOT.md`
+- Python: `examples/PILOT.md`
+
+## Enforce: fail closed beyond DENY
+
+In enforce mode, do **not** dispatch when evaluate returns or fails as:
+
+- `DENY`
+- Timeout
+- Authentication failure (401/403)
+- Malformed response
+- Unknown / missing outcome
+
+`ALLOW` with a complete decision artifact → exactly one dispatch (or your agreed stub behavior).
+
+### TypeScript
+
+```typescript
+import {
+  classifyEvaluateError,
+  honorEnforceDecision,
+  normalizeEvaluateResponse,
+} from '@sector8/sdk';
+
+let attempt;
+try {
+  const raw = await client.evaluate({
+    tool_name: 'orders.refund',
+    arguments: { amount: 25 },
+  });
+  attempt = normalizeEvaluateResponse(raw);
+} catch (error) {
+  attempt = { ok: false, kind: classifyEvaluateError(error) };
+}
+
+const { dispatched } = honorEnforceDecision(attempt, () => {
+  // Side effect runs only on ALLOW.
+  return runRefund();
+});
+```
+
+### Python
+
+```python
+from sector8 import (
+    classify_evaluate_error,
+    honor_enforce_decision,
+    normalize_evaluate_response,
+)
+
+try:
+    raw = await client.evaluate(tool_name="orders.refund", arguments={"amount": 25})
+    attempt = normalize_evaluate_response(raw)
+except Exception as exc:
+    attempt = {"ok": False, "kind": classify_evaluate_error(exc)}
+
+result = honor_enforce_decision(attempt, run_refund)
+```
+
+## Observe: continue on failure
+
+Use observe when you need evaluate visibility without blocking the partner workflow yet.
+
+```typescript
+import { honorObserveDecision, normalizeEvaluateResponse } from '@sector8/sdk';
+
+const attempt = normalizeEvaluateResponse(await client.evaluate({ /* ... */ }));
+honorObserveDecision(attempt, () => {
+  // Business path continues even if attempt is DENY or a classified failure.
+  return continueNormalWorkflow();
+});
+```
+
+<Warning>
+Observation failure behavior: if evaluate times out, returns 401, returns a malformed body, or the gate is unreachable, **observe mode still continues the workflow**. Record the failure for the pilot report. Do not treat “continued” as “allowed by Sector8.”
+</Warning>
+
+## Evidence after evaluate
+
+Every decision should carry:
+
+- `outcome` (`ALLOW` / `DENY`)
+- `reason_code`
+- `decision_trace_id`
+- `evidence_hash`
+- `policy_version_id`
+
+After a fresh evaluate, look up the same `decision_trace_id` in the Decision Feed (tenant-scoped retrieve) to confirm the feed matches the response artifact. Missing or cross-tenant traces return the same not-found result.
+
+## Move to enforce
+
+1. Confirm observe does not break the partner path on DENY / timeout / error.
+2. Flip the honor path to `honorEnforceDecision` / `honor_enforce_decision`.
+3. Re-run ALLOW (dispatches once) and DENY / failure classes (zero dispatch).
+4. Keep recording `decision_trace_id` values for the pilot report.
+
+## Related
+
+- [Quickstart](/guides/quickstart)
+- [Python SDK](/guides/python-sdk)
+- [TypeScript SDK](/guides/typescript-sdk)
+- [Evaluate API](/api-reference/evaluate)
