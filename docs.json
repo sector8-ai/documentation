@@ -34,8 +34,9 @@
             "group": "Start here",
             "pages": [
               "guides/introduction",
-              "guides/quickstart",
               "guides/onboard",
+              "guides/onboard-assistant",
+              "guides/quickstart",
               "guides/observe-then-enforce"
             ]
           },

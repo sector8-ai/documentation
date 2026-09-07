@@ -1,123 +1,182 @@
 ---
 title: Onboarding
-description: Get a new Sector8 customer from runtime credentials to a verified evaluate-before-dispatch proof.
+description: One guided journey from published packages to ALLOW, DENY, evidence lookup, and observe/enforce proofs.
 ---
 
-Connect your application to Sector8 with the credentials issued to your environment, prove both an `ALLOW` path and a known `DENY` path, and confirm your runtime honors both before you write more code.
+This is the **only Start-here linear path**. Complete every step below with published packages and credentials issued to you. Do not treat health checks, telemetry, or a single `ALLOW` as onboarding success.
 
-Telemetry can follow later. Telemetry or health alone is not onboarding success.
+**You will:**
+
+1. Install and authenticate  
+2. Produce expected `ALLOW` and `DENY`  
+3. Retrieve matching decision evidence  
+4. Verify observation continues on `DENY` / evaluation failure  
+5. Verify enforcement dispatches only on `ALLOW`
+
+Latency budgets and concurrency limits are **out of scope** for this journey. Completing onboarding does not certify pilot kickoff performance.
 
 ## What you need
 
-- The Sector8 runtime credentials issued to your environment (`SECTOR8_API_KEY` and `SECTOR8_CLIENT_ID`)
-- Python 3.10+, Node.js 18+, or a runtime that can call `POST /api/v1/evaluate`
-- Access to the application path where you can allow dispatch, block on `DENY`, and fail closed on errors
+- Runtime credentials issued by Sector8 Operator / support (`SECTOR8_API_KEY`, `SECTOR8_CLIENT_ID`) — **shell env or local env file only**. Never paste keys into chat, tickets, or source control.
+- Separately provisioned **dashboard** access (browser session) for Decision Feed. The runtime key is **not** authority for dashboard APIs.
+- Python 3.10+ **or** Node.js 18+
+- For the refund walkthrough: a **pinned** checkout of the SDK examples (npm/pip do not ship `examples/`)
 
 <Info>
-Use the credentials issued to your environment. Contact [support@sector8.ai](mailto:support@sector8.ai) or [book a demo](https://sector8.ai/contact) if you do not have them yet.
+No credentials yet? Contact [support@sector8.ai](mailto:support@sector8.ai) or [book a demo](https://sector8.ai/contact). Do not borrow another tenant’s key.
 </Info>
 
-Public docs use the production host `https://sdkapi.sector8.ai`. Use the endpoint and credentials issued to your environment.
+## Environment variables (do not mix names)
 
-## Choose your path
+| Interface | Endpoint variable | Staging example |
+| --- | --- | --- |
+| Python SDK / `sector8-verify` | `SECTOR8_ENDPOINT` | `https://stgsdkapi.sector8.ai` plus `SECTOR8_UNSAFE_ENDPOINT=true` |
+| TypeScript SDK / many curl samples | `SECTOR8_BASE_URL` | `https://stgsdkapi.sector8.ai` |
+| Production default (public docs) | (SDK default) | `https://sdkapi.sector8.ai` |
 
-<CardGroup cols={3}>
-  <Card title="Python SDK" icon="python" href="/guides/python-sdk">
-    Best when your app already runs on Python and you want evaluate-before-dispatch through the SDK.
-  </Card>
-  <Card title="TypeScript SDK" icon="code" href="/guides/typescript-sdk">
-    Best for Node.js or TypeScript services that should evaluate proposed actions before local dispatch.
-  </Card>
-  <Card title="REST / custom runtime" icon="terminal" href="/guides/non-mcp-integration">
-    Best when you wire `POST /api/v1/evaluate` directly into a custom or containerized tool caller.
-  </Card>
-</CardGroup>
+These names are **not interchangeable** across tools. Set the name your installed interface documents.
 
-For Claude Code or MCP-connected clients, also see the [Guard MCP Server](/guides/mcp-server).
-
-## Recommended first run
+## Journey
 
 <Steps>
-  <Step title="Set your credentials">
-    Inject the credentials issued to your environment through env vars. Do not generate, share, or commit runtime keys in source control.
+  <Step title="1. Set credentials securely">
+    Inject issued credentials through your shell or a local `.env` that is gitignored.
+
+    **Python verifier / client:**
 
     ```bash
-    export SECTOR8_BASE_URL="https://sdkapi.sector8.ai"
     export SECTOR8_API_KEY="YOUR_API_KEY"
     export SECTOR8_CLIENT_ID="YOUR_CLIENT_ID"
+    export SECTOR8_ENDPOINT="https://stgsdkapi.sector8.ai"   # staging
+    export SECTOR8_UNSAFE_ENDPOINT=true
     ```
-  </Step>
 
-  <Step title="Confirm the gate is reachable">
+    **TypeScript client / REST samples:**
+
     ```bash
-    curl -s "$SECTOR8_BASE_URL/api/health"
+    export SECTOR8_API_KEY="YOUR_API_KEY"
+    export SECTOR8_CLIENT_ID="YOUR_CLIENT_ID"
+    export SECTOR8_BASE_URL="https://stgsdkapi.sector8.ai"   # staging
+    ```
+  </Step>
+
+  <Step title="2. Install published packages (pinned)">
+    **Python**
+
+    ```bash
+    python -m venv .venv
+    source .venv/bin/activate   # Windows: .venv\Scripts\activate
+    pip install sector8-sdk==1.0.4
+    sector8-verify --help
     ```
 
-    If health fails, do not route live actions until the endpoint is reachable.
+    **TypeScript**
+
+    ```bash
+    mkdir s8-onboard && cd s8-onboard
+    npm init -y
+    npm install @sector8/sdk@1.0.4
+    ```
   </Step>
 
-  <Step title="Pick one evaluate path">
-    Use one of these guides and call `evaluate` before dispatch:
+  <Step title="3. Confirm the gate is reachable">
+    ```bash
+    curl -s https://stgsdkapi.sector8.ai/api/health
+    # or production:
+    curl -s https://sdkapi.sector8.ai/api/health
+    ```
 
-    - [Quickstart](/guides/quickstart)
-    - [Python SDK](/guides/python-sdk)
-    - [TypeScript SDK](/guides/typescript-sdk)
-    - [Non-MCP integration](/guides/non-mcp-integration)
-    - [Guard MCP Server](/guides/mcp-server)
+    If health fails, stop. Do not route live actions.
   </Step>
 
-  <Step title="Prove ALLOW and DENY">
-    Run two evaluate-before-dispatch proofs on the same integration path:
+  <Step title="4. Prove ALLOW and DENY (evaluation-only verifier)">
+    The built-in verifier proves the evaluate contract. It is **evaluation-only** — it does not know your dispatch mode.
 
-    1. A safe proposed action that returns `ALLOW`, then dispatch only in that branch
-    2. A known unsafe or policy-blocked action that returns `DENY`, and confirm your runtime does not execute it
+    **Python**
 
-    Honor every decision the same way:
+    ```bash
+    sector8-verify
+    ```
 
-    | Result | Runtime must |
+    Expect lines like `ALLOW verified. Trace: …` and `DENY verified. Trace: …`. Record both trace IDs.
+
+    **TypeScript** — use the SDK evaluate helpers or copy `examples/onboarding-verify.js` from a [pinned TypeScript SDK tag](https://github.com/sector8-ai/sector8-sdk-typescript) after `npm install @sector8/sdk@1.0.4`.
+
+    <Warning>
+    Evaluate timeouts that are too aggressive can fail-close safe traffic. Prefer the SDK defaults unless your Operator gives a specific timeout for your path. This page does **not** define a product latency budget.
+    </Warning>
+  </Step>
+
+  <Step title="5. Retrieve matching evidence">
+    1. Open your staging (or issued) dashboard and go to **Decisions**.
+    2. Use **Verify** / lookup with each `decision_trace_id` from step 4.
+    3. Confirm matching `outcome`, `reason_code`, `policy_version_id`, and `evidence_hash`.
+
+    Dashboard login is a **session cookie**. Do not send the runtime API key to dashboard APIs.
+  </Step>
+
+  <Step title="6. Observe and enforce proofs (refund walkthrough)">
+    Examples are **not** inside the npm/pip package. Clone or download at a pinned commit/tag:
+
+    - Python: [sector8-sdk-python examples/PILOT.md](https://github.com/sector8-ai/sector8-sdk-python/blob/main/examples/PILOT.md)
+    - TypeScript: [sector8-sdk-typescript examples/PILOT.md](https://github.com/sector8-ai/sector8-sdk-typescript/blob/main/examples/PILOT.md)
+
+    Offline (no credentials) — proves helper dispatch effects only:
+
+    ```bash
+    # Python
+    python examples/refund_pilot_walkthrough.py --offline
+
+    # TypeScript (from that repo after npm install)
+    npm run refund-pilot:offline
+    ```
+
+    Live staging (Operator-issued key + Refund Agent fixture bound for your tenant):
+
+    ```bash
+    # Python
+    python examples/refund_pilot_walkthrough.py
+
+    # TypeScript
+    npx ts-node --transpile-only examples/refund-pilot-walkthrough.ts
+    ```
+
+    Fixture defaults (confirm with Operator): cap **100 GBP**, under **25**, over **250**, agent `Refund Agent`, expect over-cap `DENY` / `AMOUNT_LIMIT_EXCEEDED`.
+
+    | Mode | What must be true |
     | --- | --- |
-    | `ALLOW` | May dispatch |
-    | `DENY` | Block; do not dispatch |
-    | Missing, unknown, error, or timeout | Fail closed; do not dispatch |
+    | **Enforce** | Valid `ALLOW` → exactly one **fake** refund dispatch; `DENY` / timeout / auth / malformed → **zero** dispatches |
+    | **Observe** | Workflow **continues** once even on `DENY` or evaluation failure; report `decision` separately from `dispatched` |
 
-    Review-enabled guard paths, such as the MCP guard path, can pause borderline actions for human approval. Unresolved reviews fail closed.
-
-    Sector8 returns the verdict. Your application owns enforcing it at the dispatch boundary.
+    Fake refunds never move money. Wrong fixture binding is a **mismatch**, not success. Copy live `decision_trace_id` values back into Decision Feed Verify.
   </Step>
 
-  <Step title="Verify the result">
-    Confirm:
+  <Step title="7. Completion checklist">
+    - [ ] Published `1.0.4` packages installed in a clean environment  
+    - [ ] Credentials only via shell / local env file  
+    - [ ] Verifier (or equivalent) produced `ALLOW` + `DENY` with artifact fields  
+    - [ ] Both traces retrieved in Decision Feed and fields matched  
+    - [ ] Observe proof: continuation on DENY / failure  
+    - [ ] Enforce proof: dispatch only on ALLOW  
+    - [ ] No founder undocumented steps required  
 
-    - health responds for your environment
-    - the `ALLOW` path returned a decision artifact and your app dispatched only then
-    - the `DENY` path returned a decision artifact and your app blocked execution
-    - unknown / error paths do not execute
-    - both decision artifacts include `reason_code`, `decision_trace_id`, `evidence_hash`, and `policy_version_id`
+    You are onboarded when this checklist is complete for your language path.
   </Step>
 </Steps>
 
-<Check>
-You are onboarded when both an `ALLOW` path and a known `DENY` path are proven against the credentials and endpoint issued to your environment, and your application honors both at dispatch.
-</Check>
+## Reference only (not alternate start pages)
+
+- [Quickstart](/guides/quickstart) — short install snippets  
+- [Observe then enforce](/guides/observe-then-enforce) — mode concepts behind step 6  
+- [Python SDK](/guides/python-sdk) / [TypeScript SDK](/guides/typescript-sdk) — API detail  
+- [Evaluate API](/api-reference/evaluate)  
+- Assistant setup companion: [guides/onboard-assistant](/guides/onboard-assistant)
 
 ## Common mistakes
 
-<Warning>
-Use `https://sdkapi.sector8.ai` for public production examples. Do not paste real runtime keys into docs, tickets, chat, or source control.
-</Warning>
-
-- Treating connection health, telemetry, or a single `ALLOW` as full onboarding proof
-- Skipping a known unsafe or policy-blocked `DENY` proof
-- Logging an LLM event without calling `evaluate` before tool dispatch
-- Setting an evaluate timeout under ~10s (fail-closed then blocks your own safe `ALLOW` traffic)
-- Branching dispatch logic on a specific `reason_code` instead of on `decision`
-- Hardcoding `SECTOR8_API_KEY` or `SECTOR8_CLIENT_ID` in source
-- Forgetting a stable `session_id` on governed tool calls
-- Assuming unconnected tool paths are covered automatically
-
-## Next steps
-
-- [Quickstart](/guides/quickstart)
-- [Evaluate API](/api-reference/evaluate)
-- [Guardrails](/guides/guardrails)
-- [Guard MCP Server](/guides/mcp-server)
+- Mixing `SECTOR8_ENDPOINT` and `SECTOR8_BASE_URL` across tools  
+- Pasting runtime keys into chat or committing them  
+- Using the runtime key against dashboard APIs  
+- Treating `--offline` helper proofs as live gate evidence  
+- Claiming observation “had zero impact” on a real production workflow  
+- Branching only on `reason_code` instead of `outcome` / `decision` for enforce
