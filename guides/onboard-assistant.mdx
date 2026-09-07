@@ -38,10 +38,11 @@ Follow [Onboarding](/guides/onboard) in order. Same success criteria. Do not ski
 Mark complete only when the user confirms each item:
 
 1. `sector8-sdk==1.0.4` or `@sector8/sdk@1.0.4` installed cleanly  
-2. Health endpoint reachable for their issued environment  
-3. Verifier (or equivalent) printed ALLOW + DENY traces  
-4. Both traces verified in Decision Feed (dashboard session)  
-5. Refund walkthrough offline proofs passed **or** live fixture proofs passed without mismatch  
-6. Enforce: zero dispatch on non-ALLOW; Observe: continued on DENY/failure  
+2. Example scripts downloaded at the **immutable SHAs** on [Onboarding](/guides/onboard) (not `main`)  
+3. Health endpoint reachable for their issued environment  
+4. `onboarding_verify.py` / `onboarding-verify.js` printed ALLOW + DENY with full artifact fields  
+5. Both traces verified in Decision Feed (dashboard session)  
+6. Refund walkthrough offline proofs passed **or** live fixture proofs passed without mismatch  
+7. Enforce: zero dispatch on non-ALLOW; Observe: continued on DENY/failure  
 
 If any step needs undocumented founder help, record it as an onboarding failure and fix the published guide/example — then retry from a clean environment.
