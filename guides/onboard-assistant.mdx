@@ -13,36 +13,36 @@ Follow [Onboarding](/guides/onboard) in order. Same success criteria. Do not ski
 
 **Allowed**
 
-- Read published Mintlify docs and public GitHub example files at pinned tags  
-- Help create a local venv / npm project  
-- Help set **names** of environment variables (never ask the user to paste secret values into chat)  
-- Run non-secret commands the user approves (`sector8-verify --help`, health curl, `--offline` walkthrough)  
-- Compare redacted trace IDs the user pastes from their own terminal  
+- Read published Mintlify docs and the versioned public example bundles linked from Onboarding
+- Help create a local venv / npm project
+- Help set **names** of environment variables (never ask the user to paste secret values into chat)
+- Run non-secret commands the user approves (`sector8-verify --help`, health curl, `--offline` walkthrough)
+- Compare redacted trace IDs the user pastes from their own terminal
 
 **Forbidden**
 
-- Requesting or storing `SECTOR8_API_KEY` values in chat logs  
-- Using founder private notes, monorepo checkouts, or unpublished packages  
-- Calling dashboard APIs with the runtime key  
-- Changing production policy, rate limits, or another tenant’s fixtures  
-- Declaring onboarding complete without Decision Feed verification  
+- Requesting or storing `SECTOR8_API_KEY` values in chat logs
+- Using founder private notes, monorepo checkouts, or unpublished packages
+- Calling dashboard APIs with the runtime key
+- Changing production policy, rate limits, or another tenant’s fixtures
+- Declaring onboarding complete without Decision Feed verification
 
 ## Safe file handling
 
-- Prefer new directories (`s8-onboard/`, fresh venv).  
-- If editing an existing app, ask before modifying files; keep secrets out of diffs.  
+- Prefer new directories (`s8-onboard/`, fresh venv).
+- If editing an existing app, ask before modifying files; keep secrets out of diffs.
 - Do not commit `.env` files.
 
 ## Deterministic completion checklist
 
 Mark complete only when the user confirms each item:
 
-1. `sector8-sdk==1.0.4` or `@sector8/sdk@1.0.4` installed cleanly  
-2. Example scripts downloaded at the **immutable SHAs** on [Onboarding](/guides/onboard) (not `main`)  
-3. Health endpoint reachable for their issued environment  
-4. `onboarding_verify.py` / `onboarding-verify.js` printed ALLOW + DENY with full artifact fields  
-5. Both traces verified in Decision Feed (dashboard session)  
-6. Refund walkthrough offline proofs passed **or** live fixture proofs passed without mismatch  
-7. Enforce: zero dispatch on non-ALLOW; Observe: continued on DENY/failure  
+1. `sector8-sdk==1.0.4` or `@sector8/sdk@1.0.4` installed cleanly
+2. Public v1 example bundle downloaded and extracted from [Onboarding](/guides/onboard), without a repository checkout
+3. Health endpoint reachable for their issued environment
+4. `onboarding_verify.py` / `onboarding-verify.js` printed ALLOW + DENY with full artifact fields
+5. Both traces verified in Decision Feed (dashboard session)
+6. Refund walkthrough offline proofs and live fixture proofs passed without mismatch
+7. Enforce: zero dispatch on non-ALLOW; Observe: continued on DENY/failure
 
 If any step needs undocumented founder help, record it as an onboarding failure and fix the published guide/example — then retry from a clean environment.

@@ -7,69 +7,59 @@ This is the **only Start-here linear path**. Complete every step below with publ
 
 **You will:**
 
-1. Install and authenticate  
-2. Produce expected `ALLOW` and `DENY`  
-3. Retrieve matching decision evidence  
-4. Verify observation continues on `DENY` / evaluation failure  
+1. Install and authenticate
+2. Produce expected `ALLOW` and `DENY`
+3. Retrieve matching decision evidence
+4. Verify observation continues on `DENY` / evaluation failure
 5. Verify enforcement dispatches only on `ALLOW`
 
 Latency budgets and concurrency limits are **out of scope** for this journey. Completing onboarding does not certify pilot kickoff performance.
 
 ## What you need
 
-- Runtime credentials issued by Sector8 Operator / support (`SECTOR8_API_KEY`, `SECTOR8_CLIENT_ID`) — **shell env or local env file only**. Never paste keys into chat, tickets, or source control.
+- Runtime credentials issued by Sector8 Operator / support (`SECTOR8_API_KEY`, `SECTOR8_CLIENT_ID`) — **shell environment only**. Never paste keys into chat, tickets, or source control.
 - Separately provisioned **dashboard** access (browser session) for Decision Feed. The runtime key is **not** authority for dashboard APIs.
 - Python 3.10+ **or** Node.js 18+
-- Example scripts downloaded at the **immutable SHAs** below (npm/pip do not ship `examples/`)
+- The public example bundle below. No GitHub account or repository access is needed.
 
 <Info>
 No credentials yet? Contact [support@sector8.ai](mailto:support@sector8.ai) or [book a demo](https://sector8.ai/contact). Do not borrow another tenant’s key.
 </Info>
 
-## Immutable example revisions
+## Public example bundles
 
-Replace nothing — use these exact commits when downloading examples:
+Choose one language. Each versioned JSON download contains three scripts that use the published **1.0.4** SDK. Step 3 saves them into your new project directory without overwriting existing files.
 
-| SDK | Commit SHA | Examples tree |
-| --- | --- | --- |
-| TypeScript | `3aa27b4` | [examples/standalone @ 3aa27b4](https://github.com/sector8-ai/sector8-sdk-typescript/tree/3aa27b4/examples/standalone) |
-| Python | `dc7bcaf` | [examples @ dc7bcaf](https://github.com/sector8-ai/sector8-sdk-python/tree/dc7bcaf/examples) |
+- [TypeScript examples v1](/downloads/onboarding/v1/typescript.json)
+- [Python examples v1](/downloads/onboarding/v1/python.json)
 
-<Warning>
-These SHAs are the repair commits on `fix/standalone-onboarding-examples`. After those PRs merge to `main`, prefer the merge commit SHAs (this page will be updated). Do not use floating `main` for a clean retest.
-</Warning>
-
-### Files to download (same directory)
-
-**TypeScript** — `onboarding-verify.js`, `refund-pilot-core.js`, `refund-pilot-walkthrough.js`
-
-**Python** — `onboarding_verify.py`, `refund_pilot_core.py`, `refund_pilot_walkthrough.py`
+These examples simulate refund dispatch; they never move money. The refund cap is a narrow fixture that Sector8 must bind to your issued tenant before live verification.
 
 ## Environment variables
 
-Both example scripts accept **either** `SECTOR8_ENDPOINT` **or** `SECTOR8_BASE_URL` (same host). Staging always requires the unsafe opt-in:
+Both language paths accept `SECTOR8_ENDPOINT` or `SECTOR8_BASE_URL`; set only one. Use the endpoint issued with your credentials. The default is `https://sdkapi.sector8.ai`. A separately issued non-default endpoint requires an explicit opt-in before credential use:
 
 | Variable | Required when |
 | --- | --- |
 | `SECTOR8_API_KEY` | Always for live runs |
 | `SECTOR8_CLIENT_ID` | Always for live runs |
-| `SECTOR8_ENDPOINT` or `SECTOR8_BASE_URL` | Staging: `https://stgsdkapi.sector8.ai` |
+| `SECTOR8_ENDPOINT` or `SECTOR8_BASE_URL` | Only for an issued non-default endpoint |
 | `SECTOR8_UNSAFE_ENDPOINT=true` | Any non-default host (including staging) for **both** language paths |
 
 ```bash
 # bash
 export SECTOR8_API_KEY="YOUR_API_KEY"
 export SECTOR8_CLIENT_ID="YOUR_CLIENT_ID"
-export SECTOR8_ENDPOINT="https://stgsdkapi.sector8.ai"
-export SECTOR8_UNSAFE_ENDPOINT=true
+export SECTOR8_ENDPOINT="https://sdkapi.sector8.ai"
+# Only for an issued non-default endpoint: export SECTOR8_UNSAFE_ENDPOINT=true
 ```
 
 ```powershell
 # PowerShell
 $env:SECTOR8_API_KEY = "YOUR_API_KEY"
 $env:SECTOR8_CLIENT_ID = "YOUR_CLIENT_ID"
-$env:SECTOR8_ENDPOINT = "https://stgsdkapi.sector8.ai"
-$env:SECTOR8_UNSAFE_ENDPOINT = "true"
+$env:SECTOR8_ENDPOINT = "https://sdkapi.sector8.ai"
+# Only for an issued non-default endpoint: $env:SECTOR8_UNSAFE_ENDPOINT = "true"
 ```
 
 Local `.env` files are fine if gitignored. Neither walkthrough auto-loads dotenv — export vars in the shell (or `Get-Content .env` patterns you already use) before running.
@@ -82,81 +72,77 @@ Local `.env` files are fine if gitignored. Neither walkthrough auto-loads dotenv
   </Step>
 
   <Step title="2. Install published packages (pinned)">
-    **Python**
-
-    ```bash
-    python -m venv .venv
-    source .venv/bin/activate   # Windows: .venv\Scripts\Activate.ps1
-    pip install sector8-sdk==1.0.4
-    ```
-
-    **TypeScript**
-
-    ```bash
-    mkdir s8-onboard && cd s8-onboard
-    npm init -y
-    npm install @sector8/sdk@1.0.4
-    ```
-  </Step>
-
-  <Step title="3. Download example scripts at the pinned SHA">
-    **TypeScript (bash)**
-
-    ```bash
-    SHA=3aa27b4
-    curl -fsSL -o onboarding-verify.js \
-      "https://raw.githubusercontent.com/sector8-ai/sector8-sdk-typescript/$SHA/examples/standalone/onboarding-verify.js"
-    curl -fsSL -o refund-pilot-core.js \
-      "https://raw.githubusercontent.com/sector8-ai/sector8-sdk-typescript/$SHA/examples/standalone/refund-pilot-core.js"
-    curl -fsSL -o refund-pilot-walkthrough.js \
-      "https://raw.githubusercontent.com/sector8-ai/sector8-sdk-typescript/$SHA/examples/standalone/refund-pilot-walkthrough.js"
-    ```
-
-    **TypeScript (PowerShell)**
-
-    ```powershell
-    $SHA = "3aa27b4"
-    Invoke-WebRequest -UseBasicParsing -OutFile onboarding-verify.js `
-      "https://raw.githubusercontent.com/sector8-ai/sector8-sdk-typescript/$SHA/examples/standalone/onboarding-verify.js"
-    Invoke-WebRequest -UseBasicParsing -OutFile refund-pilot-core.js `
-      "https://raw.githubusercontent.com/sector8-ai/sector8-sdk-typescript/$SHA/examples/standalone/refund-pilot-core.js"
-    Invoke-WebRequest -UseBasicParsing -OutFile refund-pilot-walkthrough.js `
-      "https://raw.githubusercontent.com/sector8-ai/sector8-sdk-typescript/$SHA/examples/standalone/refund-pilot-walkthrough.js"
-    ```
+    Choose one language and start in a new directory.
 
     **Python (bash)**
 
     ```bash
-    SHA=dc7bcaf
-    curl -fsSL -o onboarding_verify.py \
-      "https://raw.githubusercontent.com/sector8-ai/sector8-sdk-python/$SHA/examples/onboarding_verify.py"
-    curl -fsSL -o refund_pilot_core.py \
-      "https://raw.githubusercontent.com/sector8-ai/sector8-sdk-python/$SHA/examples/refund_pilot_core.py"
-    curl -fsSL -o refund_pilot_walkthrough.py \
-      "https://raw.githubusercontent.com/sector8-ai/sector8-sdk-python/$SHA/examples/refund_pilot_walkthrough.py"
+    mkdir s8-onboard
+    cd s8-onboard
+    python -m venv .venv
+    source .venv/bin/activate
+    python -m pip install sector8-sdk==1.0.4
     ```
 
     **Python (PowerShell)**
 
     ```powershell
-    $SHA = "dc7bcaf"
-    Invoke-WebRequest -UseBasicParsing -OutFile onboarding_verify.py `
-      "https://raw.githubusercontent.com/sector8-ai/sector8-sdk-python/$SHA/examples/onboarding_verify.py"
-    Invoke-WebRequest -UseBasicParsing -OutFile refund_pilot_core.py `
-      "https://raw.githubusercontent.com/sector8-ai/sector8-sdk-python/$SHA/examples/refund_pilot_core.py"
-    Invoke-WebRequest -UseBasicParsing -OutFile refund_pilot_walkthrough.py `
-      "https://raw.githubusercontent.com/sector8-ai/sector8-sdk-python/$SHA/examples/refund_pilot_walkthrough.py"
+    mkdir s8-onboard
+    cd s8-onboard
+    python -m venv .venv
+    .\.venv\Scripts\Activate.ps1
+    python -m pip install sector8-sdk==1.0.4
     ```
+
+    **TypeScript**
+
+    ```bash
+    mkdir s8-onboard
+    cd s8-onboard
+    npm init -y
+    npm install @sector8/sdk@1.0.4
+    ```
+  </Step>
+
+  <Step title="3. Download public examples">
+    Run the commands for your language and shell in the directory from step 2. Downloads require no credentials. The extraction command refuses to overwrite existing example files; use a fresh directory for a retest.
+
+    **Typescript (bash)**
+
+    ```bash
+    curl -fsSL -o typescript.json https://sector8.mintlify.app/downloads/onboarding/v1/typescript.json
+    node -e "const fs=require('node:fs'); const b=JSON.parse(fs.readFileSync('typescript.json','utf8')); for(const n of ['onboarding-verify.js','refund-pilot-core.js','refund-pilot-walkthrough.js']) fs.writeFileSync(n,b.files[n],{flag:'wx'});"
+    ```
+
+    **Typescript (powershell)**
+
+    ```powershell
+    Invoke-WebRequest -UseBasicParsing -OutFile typescript.json https://sector8.mintlify.app/downloads/onboarding/v1/typescript.json
+    node -e "const fs=require('node:fs'); const b=JSON.parse(fs.readFileSync('typescript.json','utf8')); for(const n of ['onboarding-verify.js','refund-pilot-core.js','refund-pilot-walkthrough.js']) fs.writeFileSync(n,b.files[n],{flag:'wx'});"
+    ```
+
+    **Python (bash)**
+
+    ```bash
+    curl -fsSL -o python.json https://sector8.mintlify.app/downloads/onboarding/v1/python.json
+    python -c "import json,pathlib; b=json.loads(pathlib.Path('python.json').read_text(encoding='utf-8')); names=('onboarding_verify.py','refund_pilot_core.py','refund_pilot_walkthrough.py'); [pathlib.Path(n).open('x',encoding='utf-8').write(b['files'][n]) for n in names]"
+    ```
+
+    **Python (powershell)**
+
+    ```powershell
+    Invoke-WebRequest -UseBasicParsing -OutFile python.json https://sector8.mintlify.app/downloads/onboarding/v1/python.json
+    python -c "import json,pathlib; b=json.loads(pathlib.Path('python.json').read_text(encoding='utf-8')); names=('onboarding_verify.py','refund_pilot_core.py','refund_pilot_walkthrough.py'); [pathlib.Path(n).open('x',encoding='utf-8').write(b['files'][n]) for n in names]"
+    ```
+
   </Step>
 
   <Step title="4. Confirm the gate is reachable">
     ```bash
-    curl -s https://stgsdkapi.sector8.ai/api/health
-    # or production:
-    curl -s https://sdkapi.sector8.ai/api/health
+    curl -fsS https://sdkapi.sector8.ai/api/health
     ```
 
-    If health fails, stop. Do not route live actions.
+    For an issued non-default endpoint, use that endpoint with `/api/health`. In PowerShell, use `curl.exe`. If health fails, stop. Do not route live actions.
   </Step>
 
   <Step title="5. Prove ALLOW and DENY (full artifact fields)">
@@ -186,7 +172,7 @@ Local `.env` files are fine if gitignored. Neither walkthrough auto-loads dotenv
   </Step>
 
   <Step title="6. Retrieve matching evidence">
-    1. Open your staging (or issued) dashboard and go to **Decisions**.
+    1. Open your issued dashboard and go to **Decisions**.
     2. Use **Verify** / lookup with each `decision_trace_id` from step 5.
     3. Confirm matching `outcome`, `reason_code`, `policy_version_id`, and `evidence_hash` against the JSON printed by the verifier.
 
@@ -204,7 +190,7 @@ Local `.env` files are fine if gitignored. Neither walkthrough auto-loads dotenv
     node refund-pilot-walkthrough.js --offline
     ```
 
-    Live staging (Operator-issued key + Refund Agent fixture bound for your tenant):
+    Live verification (Operator-issued key + Refund Agent fixture bound for your tenant):
 
     ```bash
     # Python
@@ -225,14 +211,14 @@ Local `.env` files are fine if gitignored. Neither walkthrough auto-loads dotenv
   </Step>
 
   <Step title="8. Completion checklist">
-    - [ ] Published `1.0.4` packages installed in a clean environment  
-    - [ ] Example files downloaded at the immutable SHAs above (no local edits)  
-    - [ ] Credentials only via shell / local env file  
-    - [ ] Verifier produced `ALLOW` + `DENY` with full artifact fields  
-    - [ ] Both traces retrieved in Decision Feed and fields matched  
-    - [ ] Observe proof: continuation on DENY / failure  
-    - [ ] Enforce proof: dispatch only on ALLOW  
-    - [ ] No founder undocumented steps required  
+    - [ ] Published `1.0.4` packages installed in a clean environment
+    - [ ] Public v1 example bundle downloaded and extracted (no local edits)
+    - [ ] Credentials only via shell environment
+    - [ ] Verifier produced `ALLOW` + `DENY` with full artifact fields
+    - [ ] Both traces retrieved in Decision Feed and fields matched
+    - [ ] Observe proof: continuation on DENY / failure
+    - [ ] Enforce proof: dispatch only on ALLOW
+    - [ ] No founder undocumented steps required
 
     You are onboarded when this checklist is complete for your language path.
   </Step>
@@ -240,20 +226,19 @@ Local `.env` files are fine if gitignored. Neither walkthrough auto-loads dotenv
 
 ## Reference only (not alternate start pages)
 
-- [Quickstart](/guides/quickstart) — short install snippets  
-- [Observe then enforce](/guides/observe-then-enforce) — mode concepts behind step 7  
-- [Python SDK](/guides/python-sdk) / [TypeScript SDK](/guides/typescript-sdk) — API detail  
-- [Evaluate API](/api-reference/evaluate)  
+- [Quickstart](/guides/quickstart) — short install snippets
+- [Observe then enforce](/guides/observe-then-enforce) — mode concepts behind step 7
+- [Python SDK](/guides/python-sdk) / [TypeScript SDK](/guides/typescript-sdk) — API detail
+- [Evaluate API](/api-reference/evaluate)
 - Assistant setup companion: [guides/onboard-assistant](/guides/onboard-assistant)
-- Example READMEs: [Python PILOT.md](https://github.com/sector8-ai/sector8-sdk-python/blob/main/examples/PILOT.md) · [TypeScript PILOT.md](https://github.com/sector8-ai/sector8-sdk-typescript/blob/main/examples/PILOT.md)
 
 ## Common mistakes
 
-- Omitting `SECTOR8_UNSAFE_ENDPOINT=true` for staging on TypeScript or Python examples  
-- Pasting runtime keys into chat or committing them  
-- Using the runtime key against dashboard APIs  
-- Treating `--offline` helper proofs as live gate evidence  
-- Looking up simulated trace IDs in Decision Feed  
-- Cloning `main` instead of the immutable SHA for examples  
-- Claiming observation “had zero impact” on a real production workflow  
+- Omitting `SECTOR8_UNSAFE_ENDPOINT=true` for staging on TypeScript or Python examples
+- Pasting runtime keys into chat or committing them
+- Using the runtime key against dashboard APIs
+- Treating `--offline` helper proofs as live gate evidence
+- Looking up simulated trace IDs in Decision Feed
+- Using a repository checkout instead of the public v1 bundle
+- Claiming observation “had zero impact” on a real production workflow
 - Branching only on `reason_code` instead of `outcome` / `decision` for enforce
