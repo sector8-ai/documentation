@@ -30,8 +30,9 @@ No credentials yet? Contact [support@sector8.ai](mailto:support@sector8.ai) or [
 
 Choose one language. Each versioned JSON download contains three scripts that use the published **1.0.4** SDK. Step 3 saves them into your new project directory without overwriting existing files.
 
-- [TypeScript examples v1](/downloads/onboarding/v1/typescript.json)
-- [Python examples v1](/downloads/onboarding/v1/python.json)
+**Current:** [TypeScript examples v2](/downloads/onboarding/v2/typescript.json) · [Python examples v2](/downloads/onboarding/v2/python.json)
+
+v2 is Windows `cp1252`-safe (ASCII console output) so a successful live walkthrough exits `0`. [v1](/downloads/onboarding/v1/) remains available but is not the acceptance path.
 
 These examples simulate refund dispatch; they never move money. The refund cap is a narrow fixture that Sector8 must bind to your issued tenant before live verification.
 
@@ -110,28 +111,28 @@ Local `.env` files are fine if gitignored. Neither walkthrough auto-loads dotenv
     **Typescript (bash)**
 
     ```bash
-    curl -fsSL -o typescript.json https://sector8.mintlify.app/downloads/onboarding/v1/typescript.json
+    curl -fsSL -o typescript.json https://sector8.mintlify.app/downloads/onboarding/v2/typescript.json
     node -e "const fs=require('node:fs'); const b=JSON.parse(fs.readFileSync('typescript.json','utf8')); for(const n of ['onboarding-verify.js','refund-pilot-core.js','refund-pilot-walkthrough.js']) fs.writeFileSync(n,b.files[n],{flag:'wx'});"
     ```
 
     **Typescript (powershell)**
 
     ```powershell
-    Invoke-WebRequest -UseBasicParsing -OutFile typescript.json https://sector8.mintlify.app/downloads/onboarding/v1/typescript.json
+    Invoke-WebRequest -UseBasicParsing -OutFile typescript.json https://sector8.mintlify.app/downloads/onboarding/v2/typescript.json
     node -e "const fs=require('node:fs'); const b=JSON.parse(fs.readFileSync('typescript.json','utf8')); for(const n of ['onboarding-verify.js','refund-pilot-core.js','refund-pilot-walkthrough.js']) fs.writeFileSync(n,b.files[n],{flag:'wx'});"
     ```
 
     **Python (bash)**
 
     ```bash
-    curl -fsSL -o python.json https://sector8.mintlify.app/downloads/onboarding/v1/python.json
+    curl -fsSL -o python.json https://sector8.mintlify.app/downloads/onboarding/v2/python.json
     python -c "import json,pathlib; b=json.loads(pathlib.Path('python.json').read_text(encoding='utf-8')); names=('onboarding_verify.py','refund_pilot_core.py','refund_pilot_walkthrough.py'); [pathlib.Path(n).open('x',encoding='utf-8').write(b['files'][n]) for n in names]"
     ```
 
     **Python (powershell)**
 
     ```powershell
-    Invoke-WebRequest -UseBasicParsing -OutFile python.json https://sector8.mintlify.app/downloads/onboarding/v1/python.json
+    Invoke-WebRequest -UseBasicParsing -OutFile python.json https://sector8.mintlify.app/downloads/onboarding/v2/python.json
     python -c "import json,pathlib; b=json.loads(pathlib.Path('python.json').read_text(encoding='utf-8')); names=('onboarding_verify.py','refund_pilot_core.py','refund_pilot_walkthrough.py'); [pathlib.Path(n).open('x',encoding='utf-8').write(b['files'][n]) for n in names]"
     ```
 
@@ -180,7 +181,7 @@ Local `.env` files are fine if gitignored. Neither walkthrough auto-loads dotenv
   </Step>
 
   <Step title="7. Observe and enforce proofs (refund walkthrough)">
-    Offline (no credentials) — proves helper dispatch effects only. Simulated trace IDs have **no** Decision Feed row — do not look them up.
+    Offline (no credentials) proves helper dispatch effects only and must exit `0`. Simulated trace IDs have **no** Decision Feed row — do not look them up.
 
     ```bash
     # Python
@@ -190,7 +191,7 @@ Local `.env` files are fine if gitignored. Neither walkthrough auto-loads dotenv
     node refund-pilot-walkthrough.js --offline
     ```
 
-    Live verification (Operator-issued key + Refund Agent fixture bound for your tenant):
+    Live verification (Operator-issued key + Refund Agent fixture bound for your tenant) must also exit `0`:
 
     ```bash
     # Python
@@ -212,10 +213,11 @@ Local `.env` files are fine if gitignored. Neither walkthrough auto-loads dotenv
 
   <Step title="8. Completion checklist">
     - [ ] Published `1.0.4` packages installed in a clean environment
-    - [ ] Public v1 example bundle downloaded and extracted (no local edits)
+    - [ ] Public **v2** example bundle downloaded and extracted (no local edits)
     - [ ] Credentials only via shell environment
     - [ ] Verifier produced `ALLOW` + `DENY` with full artifact fields
     - [ ] Both traces retrieved in Decision Feed and fields matched
+    - [ ] Observe/enforce walkthrough exited `0` (offline and live)
     - [ ] Observe proof: continuation on DENY / failure
     - [ ] Enforce proof: dispatch only on ALLOW
     - [ ] No founder undocumented steps required
@@ -239,6 +241,7 @@ Local `.env` files are fine if gitignored. Neither walkthrough auto-loads dotenv
 - Using the runtime key against dashboard APIs
 - Treating `--offline` helper proofs as live gate evidence
 - Looking up simulated trace IDs in Decision Feed
-- Using a repository checkout instead of the public v1 bundle
+- Using a repository checkout or the superseded v1 bundle instead of the current **v2** bundle
+- Treating a non-zero walkthrough exit as success (Windows consoles must still exit `0`)
 - Claiming observation “had zero impact” on a real production workflow
 - Branching only on `reason_code` instead of `outcome` / `decision` for enforce
